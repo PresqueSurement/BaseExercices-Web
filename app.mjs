@@ -1,5 +1,6 @@
 import {levels, filterExercises, safeSelection, latexDocument} from './core.mjs';
 import {createSubjectPdf} from './pdf.mjs';
+import {attachCompiler} from './compiler.mjs';
 const $ = id => document.getElementById(id);
 const PAGE_SIZE = 12, STORAGE = 'atelier.selection.v1', NOTES = 'atelier.annotations.v1';
 let exercises = [], byId = new Map(), filtered = [], selected = [], options = {}, page=0, preview=null;
@@ -56,7 +57,7 @@ function renderResults(){
 }
 function renderSelection(){
   const count=selected.length;$('nav-count').textContent=count;$('subject-count').textContent=count;$('tray-count').textContent=`${count} exercice${count!==1?'s':''} sélectionné${count!==1?'s':''}`;
-  $('make-pdf').disabled=busy||!count;$('make-zip').disabled=busy||!count;
+  $('make-pdf').disabled=busy||!count;$('make-zip').disabled=busy||!count;$('make-latex').disabled=busy||!count;
   $('clear-selection').disabled=busy||!count;$('save-selection').disabled=busy||!count;
   $('load-selection').disabled=busy;
   const nodes=selected.map((id,i)=>{
@@ -107,6 +108,7 @@ function wireEvents(){
   $('save-selection').onclick=()=>{readOptions();jsonDownload({version:1,ids:selected,options},slug()+'-selection.json');};
   $('load-selection').onchange=async e=>{try{const data=safeSelection(await readJsonFile(e.target.files[0]),byId);if(selected.length&&!confirm('Remplacer la sélection actuelle par celle du fichier ?'))return;selected=data.ids;options=data.options;optionsToForm();persist();renderSelection();renderResults();toast('Sélection importée.');}catch(error){toast(error.message);}finally{e.target.value='';}};
   $('make-pdf').onclick=createPdf;$('make-zip').onclick=createZip;
+  attachCompiler(()=>{readOptions();return {version:1,ids:[...selected],options:{...options}};},toast);
   $('export-notes').onclick=()=>jsonDownload({version:1,annotations},'mes-annotations.json');
   $('import-notes').onchange=async e=>{try{const data=await readJsonFile(e.target.files[0]);if(data.version!==1||!data.annotations||Array.isArray(data.annotations)||typeof data.annotations!=='object')throw new Error('Fichier d’annotations incompatible.');for(const [id,note]of Object.entries(data.annotations)){if(byId.has(id)&&note&&typeof note==='object')annotations[id]={favorite:typeof note.favorite==='boolean'?note.favorite:byId.get(id).favori,note:typeof note.note==='string'?note.note.slice(0,10000):''};}writeStorage(NOTES,annotations);applyAnnotations();renderResults();toast('Annotations importées.');}catch(error){toast(error.message);}finally{e.target.value='';}};
 }
