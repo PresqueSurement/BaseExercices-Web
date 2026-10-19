@@ -3,12 +3,13 @@ import {createSubjectPdf} from './pdf.mjs';
 import {attachCompiler} from './compiler.mjs';
 import {PACKAGE_NAMES} from './ytotech-compiler.mjs';
 import {attachKeywordPicker} from './keywords.mjs';
+import {attachManagement} from './management.mjs';
 const $ = id => document.getElementById(id);
 const PAGE_SIZE = 12, STORAGE = 'atelier.selection.v1', NOTES = 'atelier.annotations.v1';
 let exercises = [], byId = new Map(), filtered = [], selected = [], options = {}, page=0, preview=null;
 let annotations = {}, bytesCache = new Map(), busy=false;
 let filters = {query:'', level:'', theme:'', keywords:[], keywordMode:'all', favorite:false};
-let keywordPicker;
+let keywordPicker, management;
 const defaults = {title:'Devoir de mathématiques',className:'',duration:'',columns:1,nameLine:true,answerSpace:0,pagePerExercise:false};
 function el(tag, cls, text) {const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;}
 function button(text, cls, action) {const b=el('button',cls,text);b.type='button';b.addEventListener('click',action);return b;}
@@ -30,7 +31,15 @@ function toggleSelection(id) {if(busy)return;if(selected.includes(id))selected=s
 function previewButton() {$('preview-add').textContent=selected.includes(preview.id)?'Retirer du devoir':'Ajouter au devoir';}
 function optionsToForm(){for(const [id,key] of [['title','title'],['class-name','className'],['duration','duration'],['columns','columns'],['answer-space','answerSpace']])$(id).value=options[key];$('name-line').checked=options.nameLine;$('page-per-exercise').checked=options.pagePerExercise;}
 function readOptions(){options={title:$('title').value.trim()||defaults.title,className:$('class-name').value.trim(),duration:$('duration').value.trim(),columns:Number($('columns').value),answerSpace:Number($('answer-space').value),nameLine:$('name-line').checked,pagePerExercise:$('page-per-exercise').checked};persist();}
-function showView(subject){$('subject-view').hidden=!subject;$('library-view').hidden=subject;$('library-tab').classList.toggle('active',!subject);$('subject-tab').classList.toggle('active',subject);$('library-tab').setAttribute('aria-pressed',String(!subject));$('subject-tab').setAttribute('aria-pressed',String(subject));$('selection-tray').hidden=subject;window.scrollTo({top:0,behavior:'smooth'});if(subject)renderSelection();}
+function showView(view){
+  const name=typeof view==='boolean'?(view?'subject':'library'):view;
+  for(const item of ['library','subject','management']){
+    $(item+'-view').hidden=item!==name;$(item+'-tab').classList.toggle('active',item===name);$(item+'-tab').setAttribute('aria-pressed',String(item===name));
+  }
+  document.querySelector('.filters').hidden=name==='management';document.querySelector('.layout').classList.toggle('management-layout',name==='management');
+  $('selection-tray').hidden=name!=='library';window.scrollTo({top:0,behavior:'smooth'});
+  if(name==='subject')renderSelection();if(name==='management')management?.refresh();
+}
 function updateFilterChoices(){
   const scope=exercises.filter(e=>!filters.level||e.niveau===filters.level);
   const themes=[...new Set(scope.map(e=>e.theme))].sort((a,b)=>a.localeCompare(b,'fr'));
@@ -106,6 +115,7 @@ async function createZip(){
 async function readJsonFile(file){if(!file)throw new Error('Aucun fichier choisi.');if(file.size>5*1024*1024)throw new Error('Fichier trop volumineux (maximum 5 Mo).');return JSON.parse(await file.text());}
 function wireEvents(){
   $('library-tab').onclick=()=>showView(false);for(const id of ['subject-tab','open-subject'])$(id).onclick=()=>showView(true);$('back-library').onclick=()=>showView(false);
+  $('management-tab').onclick=()=>showView('management');
   $('query').oninput=()=>{filters.query=$('query').value;page=0;renderResults();};
   for(const [id,key]of [['level','level'],['theme','theme']])$(id).onchange=()=>{filters[key]=$(id).value;if(id==='level')filters.theme='';page=0;updateFilterChoices();renderResults();};
   keywordPicker=attachKeywordPicker(()=>exercises.filter(e=>(!filters.level||e.niveau===filters.level)&&(!filters.theme||e.theme===filters.theme)),()=>filters,(keywords,mode=filters.keywordMode)=>{filters.keywords=keywords;filters.keywordMode=mode;page=0;renderResults();});
@@ -127,7 +137,9 @@ function wireEvents(){
 async function main(){
   try{const response=await fetch('catalogue.json');if(!response.ok)throw new Error('Le catalogue est indisponible.');exercises=await response.json();for(const e of exercises){e.originalFavorite=e.favori;e.originalNote=e.commentaire;}byId=new Map(exercises.map(e=>[e.id,e]));annotations=readStorage(NOTES,{});if(!annotations||typeof annotations!=='object'||Array.isArray(annotations))annotations={};applyAnnotations();
     options={...defaults};const stored=readStorage(STORAGE,null);if(stored){try{const restored=safeSelection(stored,byId);selected=restored.ids;options=restored.options;}catch{toast('L’ancienne sélection ne correspond plus à la base. Vous pouvez en créer une nouvelle.');}}
-    $('total-count').textContent=exercises.length.toLocaleString('fr-FR');optionsToForm();wireEvents();updateFilterChoices();renderResults();renderSelection();
+    $('total-count').textContent=exercises.length.toLocaleString('fr-FR');optionsToForm();wireEvents();
+    management=attachManagement(exercises,()=>{updateFilterChoices();renderResults();},download,toast);
+    updateFilterChoices();renderResults();renderSelection();
   }catch(error){$('result-count').textContent='La bibliothèque n’a pas pu charger.';const message=el('div','empty');message.append(el('p',null,error.message+' Rechargez la page.'));$('results').replaceChildren(message);}
 }
 main();
