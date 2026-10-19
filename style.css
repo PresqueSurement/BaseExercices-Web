@@ -6,6 +6,7 @@
 #compile-dialog{max-width:780px}#compile-dialog p,#compile-dialog li{font-size:13px;line-height:1.65}#compile-dialog h3{font:21px Georgia,serif;margin-top:25px}#compile-request{font-family:monospace;font-size:11px;margin-bottom:12px}.direct-compile{border-top:1px solid var(--line);padding-top:18px;margin-top:16px}.direct-compile summary{font-size:13px;font-weight:650}#compile-status{margin:18px 0;line-height:1.6}#compile-links{margin-top:12px}
 
 /* Aperçus de la bibliothèque : rendu des PDF et ouverture de l'original. */
+.results{grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr))}
 .pdf-card-preview{display:block;width:100%;padding:0;margin:2px 0 16px;border:1px solid var(--line);border-radius:7px;background:#fff;color:var(--green);text-align:left;overflow:hidden}
 .pdf-card-preview:hover{border-color:var(--green)}
 .pdf-card-pages{display:block;max-height:360px;min-height:100px;overflow:auto;overscroll-behavior:contain;background:#fff;scrollbar-width:thin}
