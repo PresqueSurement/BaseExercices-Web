@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="same-origin">
+  <title>Atelier — Base d’exercices</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="vendor/pdf-lib.min.js"></script>
+  <script defer src="vendor/fflate.js"></script>
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-icon">∑</span><span>Atelier<small>BASE D’EXERCICES</small></span></a>
+    <nav aria-label="Navigation principale"><button id="library-tab" class="nav active" aria-pressed="true">Bibliothèque</button><button id="subject-tab" class="nav" aria-pressed="false">Mon devoir <span id="nav-count">0</span></button></nav>
+    <span class="test-label">Version de test · accès public</span>
+  </header>
+  <div class="layout">
+    <aside class="filters" aria-label="Filtres des exercices">
+      <div class="section-label">VOTRE BIBLIOTHÈQUE</div>
+      <h2>Trouver un exercice</h2>
+      <label for="query">Recherche libre</label><input id="query" type="search" placeholder="Identifiant, mot-clé, énoncé…" autocomplete="off">
+      <label for="level">Niveau</label><select id="level"><option value="">Tous les niveaux</option><option value="seconde">Seconde</option><option value="premiere">Première</option><option value="terminale">Terminale</option></select>
+      <label for="theme">Thème</label><select id="theme"><option value="">Tous les thèmes</option></select>
+      <label for="keyword">Mot-clé</label><select id="keyword"><option value="">Tous les mots-clés</option></select>
+      <label class="check"><input id="favorites" type="checkbox"> Mes favoris uniquement</label>
+      <button id="reset-filters" class="text-button">Réinitialiser les filtres</button>
+      <div class="aside-note"><strong>De l’idée au devoir.</strong><p>Choisissez vos exercices, ajustez leur ordre et téléchargez un PDF prêt à imprimer.</p></div>
+      <details><summary>Mes annotations</summary><p class="muted">Favoris et notes sont enregistrés dans ce navigateur. Exportez-les pour les retrouver sur un autre ordinateur.</p><button id="export-notes" class="secondary">Exporter mes annotations</button><label class="file-button secondary">Importer mes annotations<input type="file" id="import-notes" accept=".json,application/json" hidden></label></details>
+    </aside>
+    <main>
+      <section id="library-view">
+        <div class="page-heading"><div><div class="section-label">MATHÉMATIQUES · LYCÉE</div><h1>Votre prochain devoir<br><em>commence ici.</em></h1><p>Parcourez la base, consultez les énoncés et composez votre sélection.</p></div><div class="stat"><strong id="total-count">—</strong><span>exercices à explorer</span></div></div>
+        <div class="results-toolbar"><h2 id="result-count">Chargement de la bibliothèque…</h2><label class="sort-label">Trier<select id="sort"><option value="id">Identifiant</option><option value="theme">Thème</option><option value="level">Niveau</option></select></label></div>
+        <div id="results" class="results" aria-live="polite"></div>
+        <div class="pagination"><button id="previous" class="secondary">← Précédent</button><span id="page-number"></span><button id="next" class="secondary">Suivant →</button></div>
+      </section>
+      <section id="subject-view" hidden>
+        <div class="page-heading"><div><div class="section-label">COMPOSER & EXPORTER</div><h1>Un devoir<br><em>à votre mesure.</em></h1><p>La sélection est sauvegardée automatiquement dans ce navigateur.</p></div></div>
+        <div class="subject-grid"><div><div class="panel"><h2>Les exercices du devoir <span id="subject-count">0</span></h2><div id="subject-list"></div><button id="back-library" class="secondary">+ Choisir d’autres exercices</button></div><div class="selection-files"><button id="save-selection" class="secondary">Exporter la sélection</button><label class="file-button secondary">Importer une sélection<input id="load-selection" type="file" accept=".json,application/json" hidden></label><button id="clear-selection" class="text-button danger">Vider le devoir</button></div></div>
+        <aside class="panel settings"><h2>Présentation du devoir</h2><label for="title">Titre</label><input id="title" maxlength="180" value="Devoir de mathématiques"><div class="two-fields"><div><label for="class-name">Classe</label><input id="class-name" maxlength="100" placeholder="Première spécialité"></div><div><label for="duration">Durée</label><input id="duration" maxlength="80" placeholder="1 heure"></div></div><label for="columns">Mise en page</label><select id="columns"><option value="1">Une colonne</option><option value="2">Deux colonnes</option></select><label for="answer-space">Espace de réponse après chaque exercice</label><select id="answer-space"><option value="0">Aucun</option><option value="40">Petit espace</option><option value="90">Grand espace</option></select><label class="check"><input id="name-line" type="checkbox" checked> Ligne Nom / Prénom</label><label class="check"><input id="page-per-exercise" type="checkbox"> Un exercice par page</label><button id="make-pdf" class="primary wide">Télécharger le devoir PDF ↓</button><button id="make-zip" class="secondary wide">Télécharger les sources LaTeX (.zip)</button><p class="muted small">Le PDF assemble les énoncés déjà compilés, avec votre titre et une nouvelle numérotation. Les sources LaTeX nécessitent votre fichier personnel <code>monpreambule.sty</code> pour être recompilées.</p><div id="export-status" role="status" class="export-status"></div></aside></div>
+      </section>
+    </main>
+    <aside id="selection-tray" class="selection-tray"><div><strong id="tray-count">0 exercice sélectionné</strong><span>Votre devoir prend forme.</span></div><button id="open-subject" class="primary">Composer le devoir →</button></aside>
+  </div>
+  <dialog id="exercise-dialog"><div class="dialog-heading"><div><span id="preview-id" class="section-label"></span><h2 id="preview-title"></h2></div><button id="close-dialog" class="icon-button" aria-label="Fermer l’aperçu">✕</button></div><div class="dialog-actions"><button id="preview-add" class="primary">Ajouter au devoir</button><button id="preview-favorite" class="secondary">☆ Favori</button><a id="download-pdf" class="secondary" download>Télécharger le PDF</a><button id="download-tex" class="secondary">Télécharger le .tex</button></div><div class="preview-tabs"><button id="show-pdf" class="text-button" aria-pressed="true">Aperçu PDF</button><button id="show-tex" class="text-button" aria-pressed="false">Code LaTeX</button></div><iframe id="pdf-preview" title="Énoncé de l’exercice" src="about:blank"></iframe><pre id="tex-preview" hidden></pre><div class="notes"><label for="exercise-note">Note personnelle</label><textarea id="exercise-note" rows="2" placeholder="Une indication, une idée de séance…"></textarea><p class="muted small">La note et les favoris sont conservés uniquement dans ce navigateur.</p></div></dialog>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+  <noscript>Activez JavaScript pour parcourir la base et créer vos devoirs.</noscript>
+</body>
+</html>
