@@ -48,10 +48,19 @@ function renderResults(){
     const card=el('article','exercise-card'+(selected.includes(e.id)?' selected':''));
     const top=el('div','card-top');top.append(el('span','level-badge',levels[e.niveau]),el('span','exercise-id',e.id));
     const fav=button(e.favori?'★':'☆','favorite-button',()=>saveAnnotation(e,{favorite:!e.favori}));fav.setAttribute('aria-label',`${e.favori?'Retirer':'Ajouter'} ${e.id} ${e.favori?'des':'aux'} favoris`);fav.setAttribute('aria-pressed',String(!!e.favori));top.append(fav);
-    const excerpt=e.text.replace(/^\s*EXERCICE\s+\d+\s*/i,'').replace(/\s+/g,' ');
+    const pdfPreview=button('','pdf-card-preview',()=>openPreview(e));
+    pdfPreview.setAttribute('aria-label',`Ouvrir le PDF de ${e.id}`);
+    const pages=el('span','pdf-card-pages');
+    for(const [index,view] of (e.previews||[]).entries()){
+      const image=el('img');image.src=view.src;image.alt=`Énoncé PDF ${e.id}, page ${index+1}`;
+      image.width=view.width;image.height=view.height;image.loading='lazy';image.decoding='async';pages.append(image);
+    }
+    if(!pages.childElementCount)pages.append(el('span','muted','Ouvrir l’aperçu PDF'));
+    const caption=el('span','pdf-card-caption',`Aperçu PDF${e.previews?.length>1?' · '+e.previews.length+' pages':''} · Agrandir ↗`);
+    pdfPreview.append(pages,caption);
     const tags=el('div','tags');for(const keyword of e.mots_cles.slice(0,4))tags.append(el('span','tag',keyword.replaceAll('_',' ')));if(e.mots_cles.length>4)tags.append(el('span','tag','+'+(e.mots_cles.length-4)));
     const bottom=el('div','card-bottom');bottom.append(button('Consulter l’énoncé ↗','text-button',()=>openPreview(e)),button(selected.includes(e.id)?'✓ Sélectionné':'+ Ajouter','secondary',()=>toggleSelection(e.id)));
-    card.append(top,el('h3',null,e.theme.replaceAll('_',' ')),el('p','excerpt',excerpt.slice(0,330)),tags,bottom);return card;
+    card.append(top,el('h3',null,e.theme.replaceAll('_',' ')),pdfPreview,tags,bottom);return card;
   });
   if(!nodes.length){const empty=el('div','empty');empty.append(el('h3',null,'Aucun exercice trouvé'),el('p',null,'Essayez un autre mot ou élargissez les filtres.'));nodes.push(empty);}
   $('results').replaceChildren(...nodes);$('page-number').textContent=`Page ${page+1} / ${Math.max(1,Math.ceil(filtered.length/PAGE_SIZE))}`;$('previous').disabled=page===0;$('next').disabled=(page+1)*PAGE_SIZE>=filtered.length;
