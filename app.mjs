@@ -1,6 +1,7 @@
 import {levels, filterExercises, safeSelection, latexDocument} from './core.mjs';
 import {createSubjectPdf} from './pdf.mjs';
 import {attachCompiler} from './compiler.mjs';
+import {PACKAGE_NAMES} from './ytotech-compiler.mjs';
 const $ = id => document.getElementById(id);
 const PAGE_SIZE = 12, STORAGE = 'atelier.selection.v1', NOTES = 'atelier.annotations.v1';
 let exercises = [], byId = new Map(), filtered = [], selected = [], options = {}, page=0, preview=null;
@@ -87,7 +88,8 @@ async function createZip(){
     const {strToU8,zipSync}=globalThis.fflate;
     const missing=list.filter(e=>e.missingImages.length).map(e=>`${e.id} : ${e.missingImages.join(', ')}`);
     const files={'devoir.tex':strToU8(latexDocument(list,opts)),'selection.json':strToU8(JSON.stringify({version:1,ids:list.map(e=>e.id),options:opts},null,2)),
-      'LISEZ-MOI.txt':strToU8('Sources du devoir\n\nLe fichier devoir.tex reprend les sources originales. Il nécessite monpreambule.sty, votre préambule personnel, absent de cette copie. Le PDF produit par le site utilise les énoncés déjà compilés.\n\nPour compiler après ajout de votre préambule et de ses dépendances : lualatex devoir.tex\n\nImages absentes des sources :\n'+(missing.join('\n')||'Aucune image manquante détectée.'))};
+      'LISEZ-MOI.txt':strToU8('Sources du devoir\n\nLe fichier devoir.tex reprend les exercices sélectionnés. Les packages personnels sont inclus, ainsi que les images nécessaires. Une distribution LaTeX complète et récente est requise.\n\nPour compiler : lualatex devoir.tex\n\nImages absentes des sources :\n'+(missing.join('\n')||'Aucune image manquante détectée.'))};
+    for(const name of PACKAGE_NAMES)files[name]=await fetchBytes('latex/'+name);
     for(const e of list){files['exercices/'+e.id+'.tex']=strToU8(e.tex);for(const asset of Object.values(e.images)){const name='images/'+asset.split('/').pop();if(!files[name])files[name]=await fetchBytes(asset);}}
     download(zipSync(files),'application/zip',slug()+'-sources.zip');$('export-status').textContent='Sources téléchargées.'+(missing.length?' Attention : certaines images LaTeX sont absentes ; voir LISEZ-MOI.txt.':'');
   }catch(error){$('export-status').textContent='Échec : '+error.message;}finally{busy=false;renderSelection();}
@@ -108,7 +110,7 @@ function wireEvents(){
   $('save-selection').onclick=()=>{readOptions();jsonDownload({version:1,ids:selected,options},slug()+'-selection.json');};
   $('load-selection').onchange=async e=>{try{const data=safeSelection(await readJsonFile(e.target.files[0]),byId);if(selected.length&&!confirm('Remplacer la sélection actuelle par celle du fichier ?'))return;selected=data.ids;options=data.options;optionsToForm();persist();renderSelection();renderResults();toast('Sélection importée.');}catch(error){toast(error.message);}finally{e.target.value='';}};
   $('make-pdf').onclick=createPdf;$('make-zip').onclick=createZip;
-  attachCompiler(()=>{readOptions();return {version:1,ids:[...selected],options:{...options}};},toast);
+  attachCompiler(()=>{readOptions();return {version:1,ids:[...selected],options:{...options}};},toast,request=>request.ids.map(id=>byId.get(id)));
   $('export-notes').onclick=()=>jsonDownload({version:1,annotations},'mes-annotations.json');
   $('import-notes').onchange=async e=>{try{const data=await readJsonFile(e.target.files[0]);if(data.version!==1||!data.annotations||Array.isArray(data.annotations)||typeof data.annotations!=='object')throw new Error('Fichier d’annotations incompatible.');for(const [id,note]of Object.entries(data.annotations)){if(byId.has(id)&&note&&typeof note==='object')annotations[id]={favorite:typeof note.favorite==='boolean'?note.favorite:byId.get(id).favori,note:typeof note.note==='string'?note.note.slice(0,10000):''};}writeStorage(NOTES,annotations);applyAnnotations();renderResults();toast('Annotations importées.');}catch(error){toast(error.message);}finally{e.target.value='';}};
 }

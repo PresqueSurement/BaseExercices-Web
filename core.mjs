@@ -30,15 +30,17 @@ export function latexEscape(text) {
   return String(text).replace(/[\\{}$&#%_~^]/g, c => ({'\\': '\\textbackslash{}', '{': '\\{', '}': '\\}', '$': '\\$', '&': '\\&', '#': '\\#', '%': '\\%', '_': '\\_', '~': '\\textasciitilde{}', '^': '\\textasciicircum{}'}[c]));
 }
 export function latexDocument(exercises, options) {
-  const content = exercises.map(e => {
+  const content = exercises.map((e, index) => {
     let tex = e.tex;
     for (const [ref, asset] of Object.entries(e.images)) tex = tex.split('{' + ref + '}').join('{images/' + asset.split('/').pop() + '}');
-    return `% --- ${e.id} ---\n${tex}\n\\bigskip`;
+    return (index && options.pagePerExercise ? '\\clearpage\n' : '') + `% --- ${e.id} ---\n${tex}\n\\bigskip` +
+      (options.answerSpace ? `\n\\vspace*{${Math.min(120, Math.max(0, Number(options.answerSpace) || 0))}pt}` : '');
   }).join('\n\n');
-  return '\\documentclass[dvipsnames,12pt]{article}\n\\usepackage{monpreambule}\n\\usepackage{multicol}\n\\begin{document}\n' +
+  const columns = options.columns === 2 && !options.pagePerExercise;
+  return '\\documentclass[dvipsnames,12pt,a4paper]{article}\n\\usepackage{monpreambule}\n\\begin{document}\n' +
     `\\begin{center}\\Large\\bfseries ${latexEscape(options.title)}\\end{center}\n` +
     `${latexEscape(options.className)}\\hfill ${latexEscape(options.duration)}\n\n` +
     (options.nameLine ? 'Nom : \\dotfill \\quad Prénom : \\dotfill\n\\bigskip\n' : '') +
-    (options.columns === 2 ? '\\begin{multicols}{2}\n' : '') + content +
-    (options.columns === 2 ? '\n\\end{multicols}' : '') + '\n\\end{document}\n';
+    (columns ? '\\begin{DeuxCols}\n' : '') + content +
+    (columns ? '\n\\end{DeuxCols}' : '') + '\n\\end{document}\n';
 }

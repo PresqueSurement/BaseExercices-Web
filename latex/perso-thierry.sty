@@ -1,0 +1,1503 @@
+
+% *******************************************
+% Fichier de configuration Latex
+% Auteur   : 	Thierry JOFFREDO, directement inspiré du package "tarassconf" de Nicolas Kisselhoff
+% *******************************************
+
+
+
+\NeedsTeXFormat{LaTeX2e}
+
+
+% *******************************************
+% *******************************************
+% %%% Mise en Page A4
+% *******************************************
+% *******************************************
+
+% Met les marges à zéro
+%\setlength{\evensidemargin}{0cm}
+%\setlength{\oddsidemargin}{0cm}
+%\setlength{\marginparwidth}{0cm}
+%\setlength{\marginparsep}{0cm}
+%\setlength{\marginparpush}{0cm}
+
+% On remet les marges à zéro
+%\addtolength{\hoffset}{-1in}
+%\addtolength{\voffset}{-1in}
+
+% pour que l'entête rentre dans les 2cm en haut
+%\addtolength{\voffset}{-56pt}
+
+%Par défaut pas d'indentation des retours à la ligne
+\setlength{\parindent}{0pt}
+
+\RequirePackage{ifthen}     % traite des commandes condiftionnelles
+\newboolean{load-fourier}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% % Options A5 et A4 portrait et landscape % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\DeclareOption{a4-p}{%
+	\addtolength{\hoffset}{1cm}     % marges de 1cm % corrigées en 1.5cm
+	\setlength{\textwidth}{19cm}    % 19 corrigé en 18
+	\addtolength{\voffset}{1cm}     % marges de 2cm % corrigé en 1.5cm
+	\setlength{\textheight}{27.5cm}} % 26.5 % au départ: 25.5 cm
+
+\DeclareOption{a4-l}{%
+        \special{landscape}
+        \addtolength{\hoffset}{0cm}     % marges de 2cm
+        \setlength{\textwidth}{27.7cm}
+        \addtolength{\voffset}{0cm}     % marges de 2cm
+        \setlength{\textheight}{17.5cm}}
+
+\DeclareOption{a5-p}{%
+	\addtolength{\hoffset}{-.5cm}     % marges de 1.5cm par rapport à %%était -.5cm
+	\setlength{\textwidth}{11.85cm}   %était 11.85cm
+									  % marges de 1.5cm
+	\addtolength{\headsep}{6cm}     % Diminue l'espace en l'entête et texte %était -0.5cm
+	\setlength{\textheight}{18cm}}    % était 18cm
+
+\DeclareOption{a5-l}{%
+	\special{landscape}
+	%\addtolength{\hoffset}{-.5cm}     % marges de 1.5cm par rapport à
+	\setlength{\textwidth}{19cm}      % l'option pas défaut
+	\addtolength{\headsep}{-.5cm}
+	\addtolength{\voffset}{-.25cm}    % marges de 1.5cm par rapport à
+	\setlength{\textheight}{11.85cm}  % l'option pas défaut
+	}
+
+\DeclareOption{fourier}{\setboolean{load-fourier}{true}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% %%% Francisation % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Permet de rester compatible avec les macounets
+% qui utilisent appelmac à la place de latin1
+% comme option de package inputenc
+\DeclareOption{applemac}{\def\THE@@encoding{applemac}}
+\DeclareOption{latin1}{\def\THE@@encoding{latin1}}
+%\ExecuteOptions{latin1,a4-p}
+\ExecuteOptions{latin1}
+
+\ProcessOptions
+
+\PassOptionsToPackage{\THE@@encoding}{inputenc}
+\RequirePackage{inputenc}          % les bons codes pour les bonnes lettres
+
+\RequirePackage[T1]{fontenc}       % une police avec des caractères accentués
+\RequirePackage[french]{babel}   % un package de francisation (date, césure ...)  %Mis en commentaire par PI : clash avec tikz
+
+%\FrenchItemizeSpacingfalse
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% %%% Les Polices %%% %
+%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{pifont}     % Police symbole pour \ding
+\RequirePackage{amsmath}    % Police de maths
+\RequirePackage{amssymb}    % Police de maths
+\RequirePackage{mathrsfs}   % Police de maths joli caligraphie
+                            % pour courbe et plan
+\RequirePackage{textcomp}   % Police pour l'euro et autre
+\RequirePackage{bbm}        % sinon
+
+
+% %%% L'autre solution qui consiste à piocher un caractère 
+% %%% dans le package marvosym qui présente une incompatibilité
+% %%% avec des flèches de maths
+
+\DeclareFontFamily{OT1}{mvs}{}
+\DeclareFontShape{OT1}{mvs}{m}{n}{<-> fmvr8x}{}
+\def\mvs{\usefont{OT1}{mvs}{m}{n}}
+\def\mvchr{\mvs\char}
+\def\EUR{\,{\mvchr164}\xspace}   % Euro
+	\newcommand*{\Euro}{\ensuremath{\text{\,\EUR}}\xspace}
+\def\Cafe{{\mvchr"4B}\xspace}     % Café chaud
+\def\CisG{{\mvchr"71}}            % Ciseaux gauche sur pointillés
+\def\CisP{{\mvchr"72}}            % pointillés
+\def\CisD{{\mvchr"73}}            % Ciseaux droite sur pointillés
+
+
+\newcommand{\CiseauxG}[1][21cm]{%
+	\makebox[0cm]{%
+	\begin{minipage}{#1}
+	\CisP\CisP\CisP\CisP\CisP\CisP\CisP\CisP\CisP%
+	\CisG\leaders\hbox{\CisP}\hfill\rule{0pt}{0pt}
+	\end{minipage}}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+%%% % Multicolonne % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{multicol}   % Gestion des colonnes dans le texte
+\setlength{\multicolsep}{3pt}   % Espace avant et après
+                                % qui à 12pt par défaut
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%% Inclusion de dessin % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%\RequirePackage[dvips,final]{graphicx}   %Mis en commentaire par PI : clash avec tikz
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%% Gestion des tableaux % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{array}     % Nouveau package de tableau
+\RequirePackage{tabularx}  % Nouveau package de tableau de
+                           % fixe largeur
+\RequirePackage{dcolumn}   % alignement sur la virgule
+\RequirePackage{hhline}    % Nouvelle gestion des lignes
+                           % horizontales dans les tableaux
+\RequirePackage{multirow}  % package permettant de d'écrire sur plusieurs
+                           % lignes dans un tableau
+\RequirePackage{slashbox}  % ligne diagonale dans une case
+
+%%%%%%%%%%%%%%%%%%%%%%
+% %%% Les listes % %%%
+%%%%%%%%%%%%%%%%%%%%%%
+
+% Redefinir les etiquettes des listes
+\RequirePackage[flushleft,alwaysadjust]{paralist}
+
+% Défini les étiquettes des listes par défaut.
+\setdefaultenum{\bf 1.}{a)}{\it i.}{}
+
+% Défini les étiquettes des itemize par défaut.
+\setdefaultitem{}{}{}{}
+
+% Permet d'avoir une liste numérottée en lettres
+% minuscules grecques avec le paramètre [g]
+\RequirePackage{greekctr}
+%\makeatletter
+\g@addto@macro\pl@hook{%
+  \ifx g\pl@temp
+    \def\@tempa{\pl@label\greek}%
+  \fi}
+%\makeatother
+
+
+
+%%%%%%%%%%%%%%%%%%%%%
+% %%% PS Tricks % %%%
+%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{pst-fill}   % Package PS-trikcs pour le remplissage
+\RequirePackage{pst-plot}   % Package PS-trikcs pour tracer les courbes
+\RequirePackage{pst-tree}   % Package PS-trikcs pour dessiner les arbres
+\RequirePackage{pst-lens}   % Package PS-trikcs pour dessiner des loupes
+\RequirePackage{pstricks}
+\RequirePackage{pstricks-add}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%% Gestion des espaces % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{xspace}	    % Pour bien gérer les espaces à la fin de macros
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%% Gestion dates % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage[french]{datenumber}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% %%% Gestion conditionnelle % %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\RequirePackage{calc}       % permet les calculs
+\RequirePackage{lastpage}   % utilisé dans tounez la page et
+                            % les tableaux de signes et de variations
+%\RequirePackage{tableau}    % Mon package pour faire des tableaux
+
+
+% *******************************************
+% *******************************************
+% %%% Macros et environnements propres
+% %%% aux exercices de maths
+% *******************************************
+% *******************************************
+
+\newenvironment{Liste}{%
+	\setcounter{compi}{0}
+	\begin{list}
+        {\exoi}
+        {\setlength{\labelwidth}{1cm}
+         \setlength{\leftmargin}{1.2cm}
+        %\setlength{\itemsep}{\parsep}
+	 }
+        %\vspace{0.5em}
+	 }
+	{\end{list}}
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Pour les listes d'exos suivis de leur corrigé %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\@ifclassloaded{book}{%
+	\newcounter{ex}[chapter]
+	%\renewcommand{\theequation}{\arabic{equation}}
+	%%%%%% Numérotation de l'exercice qui fait le cours
+	\newcounter{courscomp}[chapter]
+	\usepackage{makeidx}
+	\makeindex
+	}{%
+	\newcounter{ex}}
+
+%% Environnement encadré
+\newcommand{\coursi}{\refstepcounter{courscomp} \thecourscomp . \hfill}
+
+\newsavebox{\fmbox}
+\newenvironment{encadrer}{%
+	\vspace{1em}
+    \begin{lrbox}{\fmbox}\begin{minipage}{.98\linewidth}}
+    {%\vspace{1em}
+    \end{minipage}\end{lrbox}\fbox{\usebox{\fmbox}}
+	
+	\vspace{1em minus .5em }
+	}
+
+
+%% Exercice
+ \DeclareFixedFont{%
+ \maj}{T1}{cmss}{bx}{n}{1\baselineskip}
+ \DeclareFixedFont{%
+ \reste}{T1}{cmss}{bx}{n}{0.85\baselineskip}
+
+\newenvironment{exercice}[1][]{%
+	\pagebreak[3]
+	\refstepcounter{ex}
+	\vspace{0.5em}
+	%\setcounter{equation}{0} %remise du compteur equation à zero
+				  %à chaque nouvel exercice
+	{\large \textbf{\textsc{\sffamily Exercice \theex}}}
+	%{\maj Exercice \theex}
+	\qquad{\large \textit{#1}}
+	
+	\nopagebreak[4]}%
+	{\par\addvspace{1em}}
+	
+	
+	
+\newenvironment{exercise}[1][]{%
+	\pagebreak[3]
+	\refstepcounter{ex}
+	\vspace{0.5em}
+	%\setcounter{equation}{0} %remise du compteur equation à zero
+				  %à chaque nouvel exercice
+	{\large \textbf{\textsc{\sffamily Exercise \theex}}}
+	%{\maj Exercice \theex}
+	\qquad{\large \textit{#1}}
+	
+	\nopagebreak[4]}%
+	{\par\addvspace{1em}}	
+
+%%%% Ligen séparatrice entre deux exos.
+\newcommand{\LigneSep}{%
+	\vspace{-.4\baselineskip}
+	\makebox[\linewidth][c]{\rule{\linewidth}{.5pt}}
+	\vspace{-.4\baselineskip}%
+	}
+
+%% Pointillés pour une réponses
+\newcommand{\despoints}[1][5cm]{\makebox[#1][l]{\dotfill}\xspace}
+
+%% Nom sur les feuilles à rendre
+\newcommand{\nom}{\textbf{\large{Nom: \despoints[5cm] \hfill Prénom: \despoints[5cm]}}
+\vspace{0.5em}}
+
+\newcommand{\nomEN}{\textbf{\large{Name: \despoints[5cm] \hfill Surname: \despoints[5cm]}}
+\vspace{0.5em}}
+
+%% Classe sur les feuilles à rendre
+\newcommand{\classe}{\textbf{\large{Classe: \despoints[2cm]}
+\vspace{0.5em}}}
+
+% *******************************************
+% *******************************************
+% %%% Nouvelles listes
+% *******************************************
+% *******************************************
+
+\newcommand{\Listetr}{$\blacktriangleright$}
+\newcommand{\Listetro}{$\vartriangleright$}
+\newcommand{\Listecr}{$\blacksquare$}
+\newcommand{\Listecro}{$\square$}
+\newcommand{\Listerd}{$\bullet$}
+\newcommand{\Listerdo}{$\circ$}
+
+\newenvironment{listetr}%
+	{\begin{list}{\Listetr}{}}%
+	{\end{list}}
+
+\newenvironment{listerd}%
+	{\begin{list}{\Listerd}{}}%
+	{\end{list}}
+
+\newenvironment{listecr}%
+	{\begin{list}{\Listecr}{}}%
+	{\end{list}}
+
+\newenvironment{listetro}%
+	{\begin{list}{\Listetro}{}}%
+	{\end{list}}
+
+\newenvironment{listerdo}%
+	{\begin{list}{\Listerdo}{}}%
+	{\end{list}}
+
+\newenvironment{listecro}%
+	{\begin{list}{\Listecro}{}}%
+	{\end{list}}
+
+\newenvironment{qcm}%
+	{\begin{list}{\ding{114}}{}}%
+	{\end{list}}
+
+
+% *******************************************
+% *******************************************
+% %%% Fichier de macros de maths
+% *******************************************
+% *******************************************
+
+
+% %%% SYMBOLE D'ENSEMBLE
+
+\newcommand{\GC}{\ensuremath{\mathbbm{C}}\xspace}
+\newcommand{\tzC}[1][z]{\forall #1 \in \GC \quad}
+\newcommand{\tzc}[2][z]{\forall #1 \in \GC #2 \quad}
+
+\newcommand{\GR}{\ensuremath{\mathbbm{R}}\xspace}
+\newcommand{\txR}[1][x]{\forall #1 \in \GR \quad}
+\newcommand{\txr}[2][x]{\forall #1 \in \GR #2 \quad}
+
+\newcommand{\GQ}{\ensuremath{\mathbbm{Q}}\xspace}
+\newcommand{\txQ}[1][x]{\forall #1 \in \GQ \quad}
+\newcommand{\txq}[2][x]{\forall #1 \in \GQ #2 \quad}
+
+\newcommand{\GD}{\ensuremath{\mathbbm{D}}\xspace}
+\newcommand{\txD}[1][x]{\forall #1 \in \GD \quad}
+\newcommand{\txd}[2][x]{\forall #1 \in \GD #2 \quad}
+
+\newcommand{\GZ}{\ensuremath{\mathbbm{Z}}\xspace}
+\newcommand{\tkZ}[1][k]{\forall #1 \in \GZ \quad}
+\newcommand{\tkz}[2][k]{\forall #1 \in \GZ #2 \quad}
+
+\newcommand{\GN}{\mathbbm{N}}
+\newcommand{\tnN}[1][n]{\forall #1 \in \GN \quad}
+\newcommand{\tnn}[2][n]{\forall #1 \in \GN #2 \quad}
+
+
+% %%% VECTEUR
+\newcommand{\vecteur}[1]{%
+	\overrightarrow{\rule{0em}{1.8ex} #1 \rule{0.15em}{0ex}}}
+%\RequirePackage{esvect}     % jolies flèches de vecteurs
+%\renewcommand{\vec}[1]{\vecteur{#1}}
+
+% %%% Commande pour décaler les parenthéses vers le bas autour
+% %%% des vecteurs par exemple :
+\newcommand{\DecalV}[2][2pt]{%
+	\raisebox{#1}{%
+		$\left(\raisebox{-#1}{\ensuremath{#2}}\right)$}}
+
+\newcommand{\DecalNorme}[2][2pt]{%
+	\raisebox{#1}{%
+		$\left\|\raisebox{-#1}{\ensuremath{#2}}\right\|$}}
+
+% %%% AXES OI, OJ, OK
+\newcommand{\oi}[1][O]{\DecalV[.8pt]{#1;\vec{\imath}\,}\xspace}
+\newcommand{\oj}[1][O]{\DecalV[.8pt]{#1;\vec{\jmath}\,}\xspace}
+\newcommand{\ok}[1][O]{\DecalV[.8pt]{#1;\vec{k}\,}\xspace}
+\newcommand{\ou}[1][O]{\DecalV[.8pt]{#1;\vec{u}}\xspace}
+\newcommand{\ov}[1][O]{\DecalV[.8pt]{#1;\vec{v}}\xspace}
+
+% %%% REPERE OIJ
+\newcommand{\oij}[1][O]{\DecalV[.8pt]{#1;\vec{\imath},\vec{\jmath}\,}\xspace}
+\newcommand{\oik}[1][O]{\DecalV[.8pt]{#1;\vec{\imath},\vec{k}\,}\xspace}
+\newcommand{\ojk}[1][O]{\DecalV[.8pt]{#1;\vec{\jmath},\vec{k}\,}\xspace}
+
+% %%% REPERE OUV
+\newcommand{\ouv}[1][O]{\DecalV[.8pt]{#1;\vec{u},\vec{v}}\xspace}
+
+% %%% REPERE OIJK
+\newcommand{\oijk}[1][O]{\DecalV[.8pt]{#1;\vec{\imath},\vec{\jmath},\vec{k}\,}\xspace}
+
+% %%% REPERE comme on veut
+\newcommand{\RepPlan}[3]{\DecalV[2pt]{#1;\vec{#2},\vec{#3}\,}\xspace}
+\newcommand{\RepEsp}[4]{\DecalV[2pt]{#1;\vec{#2},\vec{#3},\vec{#4}\,}\xspace}
+
+
+% %%% LIMITE
+\newcommand{\Lim}[2][x]{\displaystyle{\lim_{#1 \rightarrow #2}}}
+\newcommand{\Lims}[1]{\displaystyle{\lim_{#1}}}
+\newcommand{\TabLim}[1]{\ensuremath{%
+	\hspace{-\arraycolsep}\left.\begin{array}{l}
+	#1
+	\end{array}\hspace{-\arraycolsep}\right\}\Rightarrow}}
+
+
+% %%% Place verticale dans un tableau
+\newcommand{\vtab}[1][1]{\rule[-0.9em*\real{#1}]{0pt}{2.2em*\real{#1}}}
+
+% %%% Place verticale dans un tableau
+\newcommand{\vtabplus}{\rule[-1.2em]{0pt}{3em}}
+
+% %%% Double Place verticale dans un tableau
+\newcommand{\vtabb}{\rule[-1.6em]{0pt}{4em}}
+
+% %%% Place verticale dans un systeme
+\newcommand{\systab}{\rule[-1.05em]{0pt}{1.05em}}
+
+% %%% Coordonnées verticales dans le plan
+\newcommand{\coordp}[2]{%
+	\begin{pmatrix}
+	#1 \\ #2
+	\end{pmatrix}}
+
+% %%% Coordonnées verticales dans l'espace
+\newcommand{\coordpp}[3]{%
+	\scalebox{.7}{%
+		$\begin{pmatrix}
+		#1 \\ #2 \\ #3
+		\end{pmatrix}$
+		}}
+
+
+% %%% surface d'une aire
+\newcommand{\aire}[1]{%
+	\ensuremath{\mathscr{A}_{#1}}}
+
+% %%% Volume d'un volume
+\newcommand{\volume}[1]{%
+	\ensuremath{\mathscr{V}_{#1}}}
+
+% %%% Parties reelle et imaginaire
+\renewcommand{\Re}{\mathbf{Re\,}}
+
+\renewcommand{\Im}{\mathbf{Im\,}}
+
+
+% %%% Intégrales
+\newcommand{\Int}[2]{\displaystyle{\int\limits_{#1}^{#2}}}
+\newcommand{\dd}{\medspace\mathrm{d}}
+
+
+% %%% Eqivalent en
+\newcommand{\Equiv}[1]{\underset{#1}{\sim}}
+
+% %%% Modulo 2pi ou autre
+\newcommand{\Mod}[1][2\pi]{\enspace_{(#1)}}
+
+% %%% Congruence
+\newcommand{\congru}[3]{#1\equiv #2\thickspace [#3]}
+
+
+% %%% Cardinal
+\newcommand{\Card}{\text{Card}}
+
+
+% %%% Angle de vecteur
+\newcommand{\anglevec}[2]{%
+	\DecalV{%
+	%\widehat{%
+	\vecteur{#1};\vecteur{#2}
+	}}
+
+
+% %%% cfrac avec un petit espace en plus
+\renewcommand{\cfrac}[2]{%
+	\displaystyle{\frac{#1}{#2}}}
+
+
+% %%% Fraction en exposant
+\newcommand{\expfrac}[2]{%
+	\raisebox{.3ex}{\scriptsize{$#1$}}\negmedspace\slash
+	\negthinspace\raisebox{-.2ex}{\scriptsize{$#2$}}}
+	
+% %%% Fraction en oblique
+\newcommand{\obfrac}[2]{%
+	\raisebox{.3ex}{$#1$}\negthinspace\slash
+	\raisebox{-.2ex}{$#2$}}
+
+% %%% Parallelisme
+\renewcommand{\parallel}{\mbox{\slash\negthickspace\slash}}
+
+% On charge fourier
+\ifthenelse{\boolean{load-fourier}}{%
+	\let\parallel\undefined%
+	\let\widering\undefined%
+	\RequirePackage{fourier}%
+	\DeclareMathSymbol{\mthdotlessiup}{\mathalpha}{operators}{25}%
+	}{%
+	\DeclareMathSymbol{\mthdotlessiup}{\mathalpha}{operators}{16}%
+	}
+
+
+% %%% Heure
+\newcommand{\h}{\ensuremath{^{\text{h}}\medspace{}}}
+
+% %%% Minute
+\newcommand{\mn}{\ensuremath{'}\medspace{}}
+
+% %%% Seconde
+\newcommand{\s}{\ensuremath{''}\medspace{}}
+
+% %%% un ; avec un peu d'espace autour
+\newcommand{\pv}{\ensuremath{\: ; \,}}
+
+
+% %%% Intégration par parties
+\newcommand{\intpp}[4]{%
+	$\left\{%
+	\begin{matrix}
+	#1 & #3 \\
+	\stackrel{}{#2} & \stackrel{}{#4} \\
+	\end{matrix}
+	\right.$}
+
+% %%% Somme majuscule
+\newcommand{\Sum}{\displaystyle{\sum}}
+
+
+%%%% Autorisation des documents et calculettes
+\newcommand{\calculette}[1][est autorisée]{%
+	{\noindent\textit{
+	La qualité de la rédaction, la clarté et la précision des
+	raisonnements entreront pour une part
+	importante dans l'appréciation des copies. L'utilisation des calculatrices #1.}
+
+	\vspace{0.3cm}
+
+	}}
+
+%%%% Macro qui permet de d'avoir de colonnes centrées de dimension fixe.
+\newcommand{\Coltitre}[2]{\makebox[#1][c]{\vtab\textbf{#2}}}
+
+%%%% Macro qui donne le pgcd
+\newcommand{\PGCD}{\mathrm{PGCD}}
+
+%%%% Papier millimétré x*y en cm
+\newcommand{\PapierMill}[2]{%
+	\begin{pspicture*}(0,0)(#1,#2)
+	
+	\psgrid[gridwidth=0.3pt,
+		gridlabels=0,
+		subgriddiv=10,
+		subgridcolor=black,
+		subgridwidth=0.05pt](0,0)(21,29.7) % il faut être sûr
+				% que ça dépasse, sinon il y a des soucis avec
+				% des lignes qui ne vont pas jusqu'au bout
+				% à cause des arrondis entier de multido
+				% pspicture* coupe aux bonnes dimensions
+	
+	% Grille de 5cm en 5cm
+	\psgrid[xunit=5,yunit=5,gridwidth=0.5pt,
+		gridlabels=0,
+		subgriddiv=0](0,0)(#1,#2)%
+		
+	\psline[linewidth=1.5pt](0,0)(0,#2)(#1,#2)(#1,0)(0,0)	
+	\end{pspicture*}
+	}
+
+
+%%%% Macros pour un Vrai-Faux
+
+\newcommand{\Q}{\mbox{\ding{114}\hspace{-.7em}\raisebox{.2ex}[1ex]{\ding{51}}}}
+
+\newcommand{\VF}{%
+	\hfill\makebox[1cm][s]{\bf V\hfill F}
+	}
+	
+\newcommand{\Rep}[1][]{%
+	\ifthenelse{\equal{#1}{v}}{%
+		\hfill\makebox[1cm][s]{\Q\hfill \ding{114}}}{%
+		\ifthenelse{\equal{#1}{f}}{%
+			\hfill\makebox[1cm][s]{\ding{114} \hfill\Q}}{%
+			\hfill\makebox[1cm][s]{\ding{114} \hfill\ding{114}}}}}
+
+
+%%%% Qcm
+\newcounter{qcm}[ex]
+\newcommand{\Nqcm}{\stepcounter{qcm}\theqcm) }
+
+\newenvironment{Question}[2][5.43cm]
+	{\begin{minipage}{#1}%
+	\Nqcm #2%
+	\begin{Pilist}{pzd}{114}}%
+	{\end{Pilist}%
+	\end{minipage}%
+	
+	\vspace{0.2cm}
+	}
+
+
+\newcommand{\ssi}[1][,]{si, et seulement si#1 }
+\newcommand{\AO}[1][.]{asymptote oblique }
+\newcommand{\AV}[1][.]{asymptote verticale#1 }
+\newcommand{\AH}[1][.]{asymptote horizontale#1 }
+
+
+%%%% Tournez la page sauf sur la dernière page
+%%%% Utilise le packahe fancyhdr
+
+\newcommand{\TournezPage}{%
+	\rfoot{\ifthenelse%
+		{\equal{\thepage}{\pageref{LastPage}}}%
+		{}%
+		{\small\bf Tournez la page, SVP}}}
+
+
+%%%% Pour faire des systemes
+\newenvironment{systeme}[1]{%
+	\setlength{\arraycolsep}{1pt}
+	$$\left\{\begin{array}{*{#1}{r}}}
+	{\end{array}\right.$$}
+
+
+\newcommand{\Annee}{ 2005 -- 2006 }
+
+% %%% Notation scientifique.
+\newcommand{\Sc}[2]{%
+	\ensuremath{%
+	#1\cdot 10^{#2}}}
+
+% %%% Dgré d'un polynome
+\newcommand{\Degpol}[1]{%
+	\ensuremath{\text{d}\degres #1}}
+
+% %%% Mes d'un angle
+\newcommand{\Mes}[1]{%
+	\ensuremath{%
+	\mathrm{mes}
+	\DecalV{\widehat{#1}}
+	}}
+
+% %%%
+\newlength{\Hauteur}
+\newcommand{\Hautf}[1]{%
+	\setlength{\Hauteur}{#1\baselineskip}
+	\setlength{\Hauteur}{.5\Hauteur}
+	\rule{0pt}{\Hauteur}}
+
+% %%% Utilisation de la police caligraphique.
+\newcommand{\Calig}[1]{\ensuremath{\mathscr{#1}}}
+\newcommand{\C}{\Calig{C}\xspace}
+\newcommand{\Courbe}[1][f]{\ensuremath{\Calig{C}_{\! #1}}\xspace}
+\newcommand{\Domaine}[1][f]{\ensuremath{\Calig{D}_{\! #1}}\xspace}
+
+
+% %%% Fausse limite
+\newcommand{\Tendvers}[2][h]{\underset{#1\rightarrow #2}{\longrightarrow}}
+
+% %%% Boite colorée sans bord
+\newcommand{\ColorBox}[2][grisclair]{%
+\psframebox*[framesep=0pt,boxsep=false,fillcolor=#1]{#2}}
+
+% %%% premet d'écrire la réponse encadrée après un arrayl au bout de la ligne
+% %%% collé à droite
+\newcommand{\Reponse}[2][-1]{%
+	\hfill\raisebox{#1\baselineskip}{\smash{%
+	\makebox[0pt][r]{\ColorBox{#2}}}}}
+
+% %%% Enumerate de second niveau sur deux colonnes.
+\newenvironment{Sliste}[1][a)]%
+	{\setlength{\multicolsep}{8pt}
+	 \begin{multicols}{2}
+	 \begin{enumerate}[#1]}%
+	{\end{enumerate}
+	 \end{multicols}}
+
+% %%% Environnment Equation sur une ligne dans le texte avec numérotation
+% %%% au bout de la ligne.
+\newcommand{\Equation}[2]{%
+	\refstepcounter{equation}
+	\fbox{\ensuremath{#1}}\label{#2}\hfill\eqref{#2}}
+
+% %%% Gère automatiquement l'espace après un guillement fermant. % Mis en comm. par PI (semble dependre de babel)
+%\let\oldfg=\fg
+%\renewcommand{\fg}{\oldfg\xspace}
+
+% %%% Permet d'écrire dasn une liste en revenant contre la marge de gauche
+% %%% Indépendemment de la numérotation des questions.
+\newcommand{\HorsListe}[2][1]{%
+	\par\nopagebreak[4]\addvspace{2\itemsep}\hspace{-#1\leftmargin}%
+	\begin{minipage}{\linewidth+#1\leftmargin}
+	#2
+	\end{minipage}%
+	\nopagebreak[2]}
+
+% %%% Des intervalles
+\newcommand{\Intff}[2]{\ensuremath{\left[#1\pv #2\right]}}
+\newcommand{\Intfo}[2]{\ensuremath{\left[#1\pv #2\right[}}
+\newcommand{\Intof}[2]{\ensuremath{\left]#1\pv #2\right]}}
+\newcommand{\Intoo}[2]{\ensuremath{\left]#1\pv #2\right[}}
+
+
+\newcommand{\evenement}[1]{\og\textsl{#1}\fg}
+\newcommand{\Prob}[1]{\ensuremath{P(\text{#1})}}
+
+\newcounter{DCLS}
+\newcounter{DCLSsave}
+\newcounter{DCLSnb}
+\newcounter{Enumi}
+\newenvironment{DeuxCols}[1][2]{%
+	
+	% On incrément à chaque fois que l'on rentre
+	\stepcounter{DCLS}
+		
+	% DeuxCols ssi SCLS=1
+	\ifthenelse{\value{DCLS}>1}{}{%
+	% On sauvegarde le nombre de colonnes
+	% lors du premier appel
+	\setcounter{DCLSnb}{#1}
+	\setlength{\columnsep}{30pt}
+	\setlength{\columnseprule}{.5pt}
+	\begin{multicols}{#1}}
+	}%
+	{%
+	% DeuxCols ssi SCLS=1
+	\ifthenelse{\value{DCLS}>1}{}{\end{multicols}}
+	
+	% On décrémente à chaque sortie
+	\addtocounter{DCLS}{-1}}
+
+\newcommand{\HorsDC}[1]{%
+	%On sort de enumerate niveau I
+	\ifthenelse{\value{enumi}>0}{%
+	\setcounter{Enumi}{\theenumi}
+	\end{enumerate}}{%
+	\setcounter{Enumi}{0}}
+	
+	%On sort des DeuxCols
+	\setcounter{DCLSsave}{\theDCLS}
+	\whiledo{\value{DCLS}>0}{\end{DeuxCols}}
+	
+	#1
+
+	\whiledo{\value{DCLSsave}>0}{%
+	\begin{DeuxCols}[\theDCLSnb]
+	\addtocounter{DCLSsave}{-1}}
+
+	%On revient dans enumerate niveau I
+	\ifthenelse{\value{Enumi}>0}{%
+	\begin{enumerate}
+	\setcounter{enumi}{\theEnumi}}{}
+	}
+
+
+
+
+%\newcommand{\Remarque}[2][Remarque]{%
+%	\begin{description}
+%	\item[#1] #2
+%	\end{description}}
+
+% Barycentre
+\newcommand{\Bary}{\ensuremath{\text{Bar\,}}}
+
+% Du gras en mode maths mes en italique contrairement à \mathbf
+% juste pour un petit bout, sinon utiliser \boldmath et \unboldmath
+% à l'extérieur des $$
+\newcommand{\Mathbold}[1]{\mbox{\boldmath$#1$\unboldmath}}
+
+% Produit scalaire
+\newcommand{\ProdS}{\Mathbold{\,\cdot\,}}
+
+% Permet de centre qqchose dans une case de tableau qui n'est pas
+% définie comme centée.
+\newcommand{\Centre}[1]{\hfill#1\hfill\strut\ignorespaces}
+
+% Ou de façon plus professionnelle
+\newcolumntype{C}[3]{>{\hfill#2}#1<{#3\hfill\strut\ignorespaces}}
+
+
+% environnement avec un zigouigoui ondulé sur la gauche
+\newsavebox{\MYbox}%
+\newlength\MYh\newlength\MYd%
+
+\newenvironment{Zigoui}[1][ondule.1]{%
+    \def\Barre{#1}
+    \begin{lrbox}{\MYbox}
+		\begin{minipage}[b]{\linewidth -4bp -.5cm -.3cm }}{%
+    	\end{minipage}
+	\end{lrbox}%
+	\settoheight{\MYh}{\usebox{\MYbox}}%
+	\settodepth{\MYd}{\usebox{\MYbox}}%
+	\addtolength{\MYh}{\MYd+4bp}%
+	
+	\medskip
+	\hfill
+	\raisebox{\totalheight-3bp}{%
+		\includegraphics*[clip=true,bb= 1 -2 \MYh*72.27 2,angle=-90]{\Barre}}
+	\hspace{0.3cm}\usebox{\MYbox}%
+	\par\addvspace{2ex}
+	}%
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% Les ordres de grandeur %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+%%%% On chosit une jolie police
+%\newcommand{\OGPolice}{\usefont{OML}{pxmi}{m}{it}}
+%
+%% très grand
+%\newcommand{\TG}{\mbox{\OGPolice t\hspace{-1pt}g}\xspace}
+%\newcommand{\TGP}{\mbox{{\OGPolice t\hspace{-1pt}g}$^+$}\xspace}
+%\newcommand{\TGN}{\mbox{{\OGPolice t\hspace{-1pt}g}$^-$}\xspace}
+%
+%% très petit
+%\newcommand{\TP}{\mbox{\OGPolice t\hspace{-.3pt}p}\xspace}
+%\newcommand{\TPP}{\mbox{{\OGPolice t\hspace{-.3pt}p}$^+$}\xspace}
+%\newcommand{\TPN}{\mbox{{\OGPolice t\hspace{-.3pt}p}$^-$}\xspace}
+%\newcommand{\NTP}{\mbox{\OGPolice n\,\TP}\xspace}
+%
+%% bien déterminé
+%\newcommand{\BD}{\mbox{\OGPolice b\hspace{-.4pt}d}\xspace}
+%\newcommand{\NBD}{\mbox{\OGPolice n\,b\hspace{-.4pt}d}\xspace}
+%
+%% modéré
+%\newcommand{\MD}{\mbox{\OGPolice m\hspace{-.3pt}d}\xspace}
+%
+%% modéré non tp
+%\newcommand{\MDNTP}{\mbox{\OGPolice \MD\,\NTP}\xspace}
+
+% ombre
+\newcommand{\HB}[2][1.5]{%
+	\ensuremath{{\vphantom{#2}}^{\circ}\hspace{-#1pt}#2}}
+
+
+% Une vrai virgule pour les décimaux
+% \catcode`¤\active
+% \def¤{{,}}
+
+\DeclareMathSymbol{@}{\mathord}{letters}{"3B}
+
+% Pour avoir un \, après avant un %
+
+\let\oripourcent\%
+\renewcommand\%{\,\oripourcent\xspace}
+
+
+%%% Permet d'avoir autant de ligne de réponse que l'on veut
+%%% comme un enumerate ou un itemize
+\newlength{\REPsep}
+\setlength{\REPsep}{1.5em}
+
+\newcommand{\REPenum}[2][\bf 1.]{%
+	\begin{enumerate}[#1]
+	\multido{\i=1+1}{#2}{
+	\item \rule{0pt}{\REPsep}\dotfill }
+	\end{enumerate}
+	\addvspace{2em}}
+
+\newcommand{\REPitem}[2][\Listerd]{%
+	\begin{itemize}[#1]
+	\multido{\i=1+1}{#2}{
+	\item \rule{0pt}{\REPsep}\dotfill }
+	\end{itemize}
+	\addvspace{\REPsep}}
+
+
+% Pour les fiche de calculettes
+\newcommand{\Colbox}[1]{\psframebox*[fillcolor=grismoyen]{\tt #1}}
+\newcommand{\Touche}[2]{\fbox{\tt #1} \texttt{#2}}
+
+
+
+\newcommand*{\e}{\mathrm{e}}
+\newcommand{\ee}{\mathrm{e}}
+\newcommand{\I}{\ensuremath{\mathrm{i}}}
+
+\let\i@ORI\i
+\renewcommand*{\i}{\relax\ifmmode\boldsymbol{\mathrm{i}}\else\i@ORI\fi}
+%\newcommand*{\ibar}{\bar{\textup{\i}}}
+\newcommand*{\ibar}{\bar{\mthdotlessiup}}
+
+
+%Ajouts personnels
+
+%%%%% EN TETES ET PIEDS DE PAGES %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%ù
+
+%pieds de page
+\newcommand{\pied}[2]{
+%\usepackage{fancyhdr}
+\usepackage{lastpage}
+\pagestyle{fancy}
+%\fancyhf{} %supprime les en-tetes et pieds prédéfinis
+\renewcommand{\headrulewidth}{0pt} %filet en haut
+\renewcommand{\footrulewidth}{0pt} %filet en bas
+\lfoot{\small #1} \cfoot{\small Page \thepage/\pageref{LastPage}} \rfoot{\small #2}
+}
+\newcommand{\piedsans}[2]{
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\pagestyle{fancy}
+\fancyhf{} %supprime les en-tetes et pieds prédéfinis
+\renewcommand{\headrulewidth}{0pt} %filet en haut
+\renewcommand{\footrulewidth}{0.5pt} %filet en bas
+\lfoot{\small #1}\cfoot{\small #2} \rfoot{\small Page \thepage}
+}
+
+%en-tête
+\newcommand{\entete}[3]{
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\pagestyle{fancy}
+\fancyhf{} %supprime les en-tetes et pieds prédéfinis
+\renewcommand{\headrulewidth}{1.5pt} %filet en haut
+\renewcommand{\footrulewidth}{0.5pt} %filet en bas
+\chead{\textbf{#1} \hfill \textbf{Fiche d'exercices n° #2} \hfill \textbf{#3}}
+\cfoot{\small Page \thepage/\pageref{LastPage}}
+}
+
+
+%en-tête cours
+\newcommand{\cours}[2]{
+\begin{center}
+\textbf{\huge{ Ch #1 \qquad #2}}
+\end{center}
+\vspace{0.5cm}
+}
+
+%%en-tête cours n°2
+%\newcommand{\chapitre}[2]{
+%\begin{center}
+%\psframebox[fillstyle=solid,fillcolor=black]{\bf\white{\textsc{Chapitre} #1}}
+%\vspace{0.3cm}
+%\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+%\textbf{\textsc{{\huge Cours: #2}}}
+%\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+%\end{center}
+%\vspace{1cm}
+%}
+
+
+
+%en-tête cours n°2 pour compilation en pdf avec tikz
+\newcommand{\chapitre}[2]{
+\begin{center}
+\begin{tikzpicture}
+\draw (0,0) node [fill=black,text=white]
+{\bf\textsc{Chapitre} #1};
+\end{tikzpicture}
+%\psframebox[fillstyle=solid,fillcolor=black]{\bf\white{\textsc{Chapitre} #1}}
+\vspace{0.3cm}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\textbf{\textsc{{\huge Cours: #2}}}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\end{center}
+\vspace{1cm}
+}
+
+
+
+%en-tête ds n°2
+\newcommand{\devs}[5]{
+\begin{center}
+\psframebox[fillstyle=solid,fillcolor=black]{\bf\white{\textsc{Devoir surveillé n°} #1}}
+\vspace{0.3cm}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\textbf{\textsc{{ #2 \hfill #3 \hfill #4 \hfill Durée: #5}}}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\end{center}
+\vspace{1cm}
+\nom
+\vspace{1cm}
+\calculette
+}
+
+%en-tête activité n°2
+\newcommand{\dec}[2]{
+\begin{center}
+\psframebox[fillstyle=solid,fillcolor=black]{\bf\white{\textsc{Chapitre} #1}}
+\vspace{0.3cm}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\textbf{\textsc{{\huge Découverte: #2}}}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\end{center}
+}
+
+%en-tête divers
+\newcommand{\divers}[2]{
+\begin{center}
+\psframebox[fillstyle=solid,fillcolor=black]{\bf\white{\textsc{Chapitre} #1}}
+\vspace{0.3cm}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\textbf{\textsc{{\huge #2}}}
+\makebox[\linewidth][c]{\rule{\linewidth}{2.5pt}}
+\end{center}
+}
+
+%en-tête ds
+%\RequirePackage{fancybox}
+%\newcommand{\ds}[4]{
+%\begin{center}
+%\shadowbox{\parbox{\textwidth}{\centering{\textbf{\large{#1 \quad\quad Mathématiques: Devoir surveillé n°#2 \quad #3 \quad #4}}}}}\\
+%\end{center}
+%}
+
+\newcommand{\ds}{\displaystyle}
+
+
+%en-tête dm
+%\RequirePackage{fancybox}
+%\newcommand{\dm}[2]{
+%\begin{center}
+%\shadowbox{\parbox{\textwidth}{\centering{\textbf{\large{#1 \hfill Mathématiques: Devoir maison  \hfill A rendre avant le #2}}}}}\\
+%\end{center}
+%}
+
+%exemple
+\newcommand{\Ex}{
+\textbf{Exemple:}\\
+}
+
+%exemples
+\newcommand{\Exs}{
+\textbf{Exemples:}\\
+}
+
+%en-tête fiche exercices
+\newcommand{\fiche}[1]{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+%\textbf{\huge{ Fiche --- #1}}
+\textbf{\textsc{{\Large Fiche \rule[0.5ex]{0.75cm}{1pt}  #1  }  }}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+\vspace{0.5cm}
+}
+
+
+
+
+
+%en-tête DTL %par PI pour PI
+\newcommand{\DTL}[2]{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\Large Devoir en temps libre du #1 au #2}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+
+
+%en-tête DST %par PI pour PI
+\newcommand{\DST}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large DST de Mathématique}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+
+
+%en-tete DS %par PI pour PI
+\newcommand{\DS}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large DS de Mathématique}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+%en-tete pour la correction d'un devoir
+\newcommand{\COR}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Éléments de correction du devoir}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+%en-tete pour la correction d'un devoir sujet A
+\newcommand{\CORA}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Éléments de correction du devoir (sujet A)}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+%en-tete pour la correction d'un devoir sujet B
+\newcommand{\CORB}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Éléments de correction du devoir (sujet B)}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+%en-tete DS %par PI pour PI
+\newcommand{\DSB}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large DS de Mathématique (sujet B)}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+%en-tete DS %par PI pour PI
+\newcommand{\DSA}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large DS de Mathématique (sujet A)}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+%en-tete Bac Blanc
+\newcommand{\BacBlancSpe}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Bac Blanc de Mathématique \rule[0.5ex]{0.75cm}{1pt}  spécialité  }  }}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+%en-tete Bac Blanc
+\newcommand{\BacBlanc}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Bac Blanc de Mathématique}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+
+
+%en-tete Test %par PI pour PI
+\newcommand{\Test}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Test de Mathématique}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+\newcommand{\TestEN}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Math Test}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+
+
+
+%en-tete Test %par PI pour PI
+\newcommand{\TestA}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Test de Mathématique (sujet A)}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+
+\newcommand{\TestB}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Test de Mathématique (sujet B)}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+%en-tete Test de Compétences %par PI pour PI
+\newcommand{\TestComp}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Test de Compétences}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+\newcommand{\BB}[1]{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large Brevet Blanc n$^\circ$ #1 -- Mathématiques}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+\newcommand{\TP}[1]{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large TP : #1}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+
+
+
+
+\newcommand{\DMdate}[1]{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large DM à rendre le #1}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+\newcommand{\DM}{
+\begin{center}
+{\rule{\linewidth}{1.5pt}}
+\vspace{-2mm}
+\textbf{\textsc{{\large DM de Mathématique}}}
+{\rule{\linewidth}{1.5pt}}
+\end{center}
+}
+
+
+%en-tête activité
+\newcommand{\act}[1]{
+\begin{center}
+\textbf{\huge{ Activité: #1}}
+\end{center}
+\vspace{0.5cm}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%suite u_n
+\newcommand{\suite}[1][\mathit{u}]{
+\ensuremath{(#1_n)_{n\in\GN}}
+}
+
+%%Définition
+%\newcommand{\definition}[1]{
+%\begin{encadrer}
+%\textbf{{\blue Définition :}}\\
+%#1
+%\end{encadrer}
+%}
+
+
+
+%%Définition
+%\newcommand{\remarque}[1]{
+%\begin{encadrer}
+%\textbf{{\blue Remarque :}}\\
+%#1
+%\end{encadrer}
+%}
+
+%%DéfinitionS
+%\newcommand{\definitions}[1]{
+%\begin{encadrer}
+%\textbf{{\blue Définitions :}}\\
+%#1
+%\end{encadrer}
+%}
+
+
+
+%%Règle
+%\newcommand{\regle}[1]{
+%\begin{encadrer}
+%\textbf{{\blue Règle :}}\\
+%#1
+%\end{encadrer}
+%}
+
+%%Théorème
+%\newcommand{\theoreme}[2][]{
+%\begin{encadrer}
+%\textbf{\red Théorème #1:}\\
+%#2
+%\end{encadrer}
+%}
+
+
+
+%%Réciproque
+%\newcommand{\reciproque}[2][]{
+%\begin{encadrer}
+%\textbf{\red Réciproque #1:}\\
+%#2
+%\end{encadrer}
+%}
+
+%%Propriété
+%\newcommand{\propriete}[2][]{
+%\begin{encadrer}
+%\textbf{{\blue Propriété #1:}}\\
+%#2
+%\end{encadrer}
+%}
+
+
+%%PropriétéS
+%\newcommand{\proprietes}[2][]{
+%\begin{encadrer}
+%\textbf{{\blue Propriétés #1:}}\\
+%#2
+%\end{encadrer}
+%}
+
+% Ecriture pour le niveau CP (utilise le package frcursive)
+\newcommand{\ecriture}[1]{
+	\pspicture(.5,1)
+	\rput(0,-.55) {
+		\psline[linewidth=.5pt, linecolor=blue](0,.5)(18,.5)
+		\psline[linewidth=.5pt, linecolor=blue](0,.75)(18,.75)
+		\psline[linewidth=.5pt, linecolor=blue](0,1.25)(18,1.25)
+		\psline[linewidth=.2pt, linecolor=blue](0,1)(18,1)
+		\psline[linewidth=.5pt, linecolor=blue](0,1.5)(18,1.5)}
+	\endpspicture
+	{\Huge \textcursive{#1}}
+}
+
+%symbole de la multiplication
+\def\*{\times}
+
+% La fameuse \Rapporteur de Nicolas Poulain
+\newcommand{\rapporteur}{
+\SpecialCoor
+\pscircle{5}
+\multido{\i=0+1}{181}{\psline(5;\i)}
+\pscircle[fillcolor=white,fillstyle=solid,linestyle=none]{4.5}
+\multido{\i=0+10}{19}{\psline(5;\i)}
+\pscircle[fillcolor=white,fillstyle=solid,linestyle=none]{4}
+\pscircle[fillcolor=white,fillstyle=solid]{3}
+\psframe[fillcolor=white,fillstyle=solid,linestyle=none](5,-5.1)(-5,-1.75)
+\pscircle[fillcolor=white,fillstyle=solid]{.5}
+\psframe[fillcolor=white,fillstyle=solid](-5,-1.75)(5,0)
+\psline[linecolor=white](-.5,0)(.5,0)
+\psline[linecolor=white](-3,0)(-4,0)
+\psline[linecolor=white](3,0)(4,0)
+\pscircle[fillcolor=white,fillstyle=solid]{.05}
+\NormalCoor
+}
+
+%pour tracer des arcs d'ellipse
+\makeatletter
+
+% Arc of ellipse (but without arrows and "showpoints" parameter...)
+% D.G. - Feb. 18, 1999
+\def\psarcellipse{\pst@object{psarcellipse}}
+\def\psarcellipse@i(#1){\@ifnextchar(%
+{\psarcellipse@ii(#1)}{\psarcellipse@ii(0,0)(#1)}}
+\def\psarcellipse@ii(#1)(#2)#3#4{%
+\psarcellipse@iii(#1)(#2){#3}{#4}}
+\def\psarcellipse@iii(#1)(#2)#3#4{%
+\begin@ClosedObj
+\pst@getcoor{#1}\pst@tempa
+\pst@@getcoor{#2}%
+\addto@pscode{%
+%0 360
+#3 #4
+\pst@coor
+\ifdim\psk@dimen\p@=\z@\else
+\psk@dimen CLW mul
+dup 4 -1 roll sub neg 3 1 roll sub
+\fi
+\pst@tempa
+\tx@Ellipse
+%closepath}%
+}%
+%\def\pst@linetype{2}%
+\def\pst@linetype{0}%
+\showpointsfalse
+\end@ClosedObj}
+
+\makeatother
+
+
+% La fameuse \cone de Nicolas Poulain qui permet de dessiner des cones !
+%\cone NomCentre,affichage,hauteur,NomHauteur,affichage,rayon,ecrasement
+%\cone {A}       {default} {10}      {S}      {default} {2}     {0.5}
+%\cone {1}       {   2   } {3 }      {4}      {   5   } {6}     { 7 }
+\newcommand{\cone}[7]{
+\pstGeonode[PointSymbol=*,PointName=#2](0,0){#1}
+\pstGeonode[PointSymbol=none,PointName=none](10,0){Aamoi}
+\pstGeonode[PointSymbol=none,PointName=none](0,#3){Hsommet}
+\pstMiddleAB[PointSymbol=none,PointName=none]{#1}{Hsommet}{Milieuu}
+\pstInterCC[PointSymbol=none,PointName=none,RadiusA=\pstDistVal{#6}]{#1}{}{Milieuu}{Hsommet}{Ibidon}{Jbidon}
+\pstProjection[PointSymbol=none,PointName=none]{#1}{Aamoi}{Jbidon}{Jbidon'}
+\pstProjection[PointSymbol=none,PointName=none]{#1}{Aamoi}{Ibidon}{Ibidon'}
+
+\psplot[linestyle=dashed]{-#6}{#6}{#6 2 exp x 2 exp sub .5 exp #7 mul}
+\psplot{-#6}{#6}{#6 2 exp x 2 exp sub .5 exp -#7 mul}
+\pstHomO[HomCoef=#7,PointSymbol=none,PointName=#5]{#1}{Hsommet}{#4}
+\pstHomO[HomCoef=#7,PointSymbol=none,PointName=none]{Jbidon'}{Jbidon}{T1}
+\pstHomO[HomCoef=#7,PointSymbol=none,PointName=none]{Ibidon'}{Ibidon}{T2}
+\pstLineAB{#4}{T1}
+\pstLineAB{#4}{T2}
+}
+
+%surlignage
+\newcommand{\surlign}[1]{
+\psframebox[fillstyle=solid,fillcolor=darkgray,linestyle=none]{\bf\white #1}
+}
+
+%Mise en valeur de définitions, propriétés, théorèmes...
+\newcommand{\grise}[3]{
+\psframebox[fillcolor=lightgray,linestyle=none,shadow=true]{
+\begin{minipage}{#1}
+\surlign{#2}:\\ #3
+\end{minipage}
+}
+}
+
+
+
+%Pour écrire les siècles (macro "code128" de A Chambert-Loir)
+\def\siecle#1{\textsc{\romannumeral #1}\textsuperscript{e}~siècle}

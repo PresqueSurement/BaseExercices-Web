@@ -1,3 +1,5 @@
+import {loadCompilationService,attachAnonymousCompiler} from './anonymous-compiler.mjs';
+import {attachYtoTechCompiler} from './ytotech-compiler.mjs';
 const API='https://api.github.com/repos/PresqueSurement/BaseExercices';
 const WORKFLOW='compiler-devoir.yml';
 const ACTIONS='https://github.com/PresqueSurement/BaseExercices/actions/workflows/'+WORKFLOW;
@@ -7,8 +9,8 @@ export function compilerRequest(request,id=crypto.randomUUID()) {
   return {ref:'main',inputs:{demande:JSON.stringify(request),request_id:id}};
 }
 export function findCompilation(runs,id){return runs.find(run=>run.display_title==='Devoir '+id&&run.event==='workflow_dispatch');}
-export function attachCompiler(getRequest,toast){
-  let payload=null, running=false, currentRun=null;
+export function attachCompiler(getRequest,toast,getExercises){
+  let payload=null, running=false, currentRun=null, external=false;
   const status=text=>{$('compile-status').textContent=text;};
   const link=(text,url)=>{const a=document.createElement('a');a.className='secondary';a.textContent=text;a.href=url;a.target='_blank';a.rel='noopener';return a;};
   const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -62,6 +64,7 @@ export function attachCompiler(getRequest,toast){
     finally{running=false;$('start-compile').disabled=dispatched;$('copy-request').disabled=false;}
   }
   $('make-latex').addEventListener('click',()=>{
+    if(external){$('compile-dialog').showModal();return;}
     if(!running){try{payload=compilerRequest(getRequest());}catch(error){toast(error.message);return;}
       currentRun=null;$('compile-request').value=payload.inputs.demande;$('compile-links').replaceChildren();status('Votre sélection est prête. Choisissez un lancement manuel ou direct.');$('start-compile').disabled=false;}
     $('compile-dialog').showModal();
@@ -70,5 +73,9 @@ export function attachCompiler(getRequest,toast){
   $('copy-request').onclick=async()=>{try{await navigator.clipboard.writeText($('compile-request').value);status('Sélection copiée. Sur GitHub : Run workflow → collez-la dans « demande » → Run workflow. À la fin, téléchargez « devoir-compile » dans Artifacts.');}catch{$('compile-request').focus();$('compile-request').select();status('Sélectionnez et copiez le texte, puis collez-le dans le champ « demande » sur GitHub.');}};
   $('open-actions').href=ACTIONS;
   $('start-compile').onclick=start;
+  fetch('compilation-config.json',{cache:'no-store'}).then(r=>r.ok?r.json():{}).then(async config=>{
+    if(config.provider==='ytotech'&&getExercises){external=true;attachYtoTechCompiler(getRequest,getExercises);}
+    else {const url=await loadCompilationService();if(url)attachAnonymousCompiler(getRequest,url);}
+  }).catch(()=>{});
   $('forget-token').onclick=()=>{$('compile-token').value='';status(running?'Champ effacé. La clé de la compilation en cours sera libérée à la fin du suivi.':'Clé effacée. Aucune clé n’est enregistrée dans ce navigateur.');};
 }

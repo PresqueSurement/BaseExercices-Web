@@ -1,0 +1,403 @@
+\NeedsTeXFormat{LaTeX2e}
+
+\RequirePackage[utf8]{inputenc}
+\RequirePackage[T1]{fontenc}
+\RequirePackage[margin=0.75cm]{geometry}
+\RequirePackage[autolanguage,np]{numprint}
+\RequirePackage{pgf,tikz,pgfplots}
+\usepgfplotslibrary{fillbetween}
+\pgfplotsset{compat=newest}
+%\usepackage[Bjornstrup]{fncychap}
+\RequirePackage{longtable}
+\RequirePackage{tkz-fct}
+\RequirePackage{tkz-tab}
+\RequirePackage{tkz-euclide}
+\RequirePackage{yhmath}
+\RequirePackage{setspace}
+\RequirePackage{fancyhdr}
+\RequirePackage{lastpage}
+\RequirePackage{wrapfig2}
+\RequirePackage{tasks}
+\RequirePackage{enumerate}
+\RequirePackage{relsize}
+\RequirePackage{etoolbox}
+\RequirePackage{listingsutf8}
+%-----------
+%font sympa
+%-----------
+
+\RequirePackage{lmodern}
+\renewcommand{\familydefault}{\sfdefault}
+
+%\RequirePackage{tgheros}
+%\renewcommand{\familydefault}{\sfdefault}
+
+
+%\RequirePackage{helvet}
+\RequirePackage{euler}
+%\RequirePackage{iwonamath}
+%%\RequirePackage{mathpazo}
+%\usepackage{gfsartemisia-euler}
+%\usepackage{lexia}
+%\usepackage{kpfonts}
+
+%\usepackage{venturis}
+%\renewcommand\familydefault{\sfdefault}
+
+%\usepackage{listings} % inserer du code Python (ou autre) en verbatim 
+%\lstset{basicstyle=\ttfamily, keywordstyle=\bfseries, numbers=left}
+\RequirePackage{tcolorbox}[most]
+\tcbuselibrary{skins, breakable, raster,most}
+\RequirePackage{tkz-euclide}
+\usetikzlibrary{babel, patterns.meta}
+\RequirePackage{tzplot}
+\RequirePackage{perso-thierry}
+\RequirePackage{alterqcm}
+\usetikzlibrary{arrows,calc}
+
+
+
+% faire du papier quadrillé (Seyes et autre...)
+\RequirePackage{WriteOnGrid}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\D}{\mathbb{D}}
+\renewcommand{\Q}{\mathbb{Q}}
+
+
+% Titre pour Fiches
+\newtcolorbox{mafiche}[1][]{colback=red!5!white,
+colframe=red!75!black,
+fonttitle=\bfseries,
+colbacktitle=red!85!black,enhanced,
+attach boxed title to top left={yshift*=-3mm, xshift=1cm},
+title={{\large\sc\bfseries Fiche #1}}}
+
+
+
+
+
+
+% ============================================================
+% BOÎTES DE COURS
+% Définition - Propriété - Théorème - Remarque - Attention
+% ============================================================
+
+% À conserver uniquement si ces packages ne sont pas déjà chargés
+%\RequirePackage[most]{tcolorbox}
+\RequirePackage{fontawesome5}
+
+% ------------------------------------------------------------
+% Couleurs
+% ------------------------------------------------------------
+
+% Définition
+\definecolor{vertboite}{RGB}{225,245,230}
+\definecolor{vertbord}{RGB}{20,120,65}
+
+% Propriété
+\definecolor{rougeboite}{RGB}{253,232,232}
+\definecolor{rougebord}{RGB}{190,30,45}
+
+% Théorème
+\definecolor{bleuboite}{RGB}{230,242,252}
+\definecolor{bleubord}{RGB}{25,95,160}
+
+% Remarque
+\definecolor{jauneboite}{RGB}{255,248,220}
+\definecolor{jaunebord}{RGB}{190,135,20}
+
+% Attention
+\definecolor{orangeboite}{RGB}{255,238,220}
+\definecolor{orangebord}{RGB}{210,95,20}
+
+
+% ============================================================
+% BOÎTE GÉNÉRIQUE
+%
+% #1 : titre
+% #2 : couleur de fond
+% #3 : couleur du cadre
+% #4 : icône
+% ============================================================
+
+\newtcolorbox{boitecours}[4]{
+  enhanced,
+  breakable,
+  colback=#2,
+  colframe=#3,
+  boxrule=0.8pt,
+  arc=4mm,
+  outer arc=4mm,
+  left=12mm,
+  right=4mm,
+  top=6mm,
+  bottom=4mm,
+  title={#1},
+  fonttitle=\bfseries,
+  coltitle=#3,
+  attach boxed title to top left={
+    xshift=10mm,
+    yshift=-\tcboxedtitleheight/2
+  },
+  boxed title style={
+    enhanced,
+    colback=#2,
+    colframe=#3,
+    boxrule=0.8pt,
+    arc=3mm,
+    outer arc=3mm,
+    left=3mm,
+    right=3mm,
+    top=1mm,
+    bottom=1mm
+  },
+  overlay unbroken={
+    % Pictogramme
+    \node[
+      text=#3,
+      font=\large,
+      inner sep=0pt
+    ]
+    at ([xshift=7mm,yshift=-7mm]frame.north west)
+    {#4};
+
+    % Liseré vertical
+    \draw[#3,line width=1.2pt]
+      ([xshift=7mm,yshift=-11mm]frame.north west)
+      --
+      ([xshift=7mm,yshift=5mm]frame.south west);
+  },
+  before skip=7mm,
+  after skip=6mm
+}
+
+
+% ============================================================
+% ENVIRONNEMENTS pour faire du cours
+% ============================================================
+
+% ------------------------------------------------------------
+% DÉFINITION
+% ------------------------------------------------------------
+
+\newenvironment{definition}
+  {\begin{boitecours}
+    {Définition}
+    {vertboite}
+    {vertbord}
+    {\faBookOpen}}
+  {\end{boitecours}}
+
+
+% ------------------------------------------------------------
+% PROPRIÉTÉ
+% ------------------------------------------------------------
+
+\newenvironment{propriete}
+  {\begin{boitecours}
+    {Propriété}
+    {rougeboite}
+    {rougebord}
+    {\faClipboardList}}
+  {\end{boitecours}}
+
+
+% ------------------------------------------------------------
+% THÉORÈME
+% ------------------------------------------------------------
+
+\newenvironment{theoreme}
+  {\begin{boitecours}
+    {Théorème}
+    {bleuboite}
+    {bleubord}
+    {\faScroll}}
+  {\end{boitecours}}
+
+
+% ------------------------------------------------------------
+% REMARQUE
+% ------------------------------------------------------------
+
+\newenvironment{remarque}
+  {\begin{boitecours}
+    {Remarque}
+    {jauneboite}
+    {jaunebord}
+    {\faLightbulb}}
+  {\end{boitecours}}
+
+
+% ------------------------------------------------------------
+% ATTENTION
+% ------------------------------------------------------------
+
+\newenvironment{attention}
+  {\begin{boitecours}
+    {Attention}
+    {orangeboite}
+    {orangebord}
+    {\faExclamationTriangle}}
+  {\end{boitecours}}
+
+
+
+
+%tracer vite fait une parabole
+% macro claude 
+
+% ============================================================
+% \parabole{signe de a}{x_S}{y_S}{taille en cm}
+%
+% Exemples :
+% \parabole{+}{-1}{1}{4}
+% \parabole{-}{1}{-1}{4}
+%
+% Seuls les signes de x_S et y_S sont utilisés.
+% Garantit une fenêtre CARRÉE de \taille cm x \taille cm,
+% équilibrée visuellement que la parabole touche/traverse
+% l'axe des abscisses ou non, avec une flèche d'axe correcte.
+% ============================================================
+%
+% Prérequis dans le préambule :
+% \usepackage{tikz}
+% \usetikzlibrary{arrows.meta}
+% \usepackage{etoolbox}
+
+\newcommand{\parabole}[4]{%
+\begin{tikzpicture}
+
+    \def\xS{#2}
+    \def\yS{#3}
+    \def\taille{#4}
+    \def\borneX{2}
+    \def\decalage{1}
+    \def\courbure{0.65}
+    \def\courbeHaut{2.65}
+
+    % Marge quand ce côté ne contient NI axe NI courbe
+    % (cas où la parabole touche/traverse l'axe horizontal)
+    \def\margeVide{0.5}
+
+    % Marge quand ce côté contient l'axe horizontal ET la pointe
+    % de la flèche verticale : doit être assez généreuse pour que
+    % la flèche se prolonge visiblement au-delà de l'intersection
+    \def\margeAxe{1.2}
+
+    % --------------------------------------------------------
+    % Position des axes par rapport au sommet (toujours en (0,0))
+    % --------------------------------------------------------
+
+    \pgfmathsetmacro{\xO}
+        {(\xS>0) ? -\decalage :
+         ((\xS<0) ? \decalage : 0)}
+
+    \pgfmathsetmacro{\yO}
+        {(\yS>0) ? -\decalage :
+         ((\yS<0) ? \decalage : 0)}
+
+    \ifstrequal{#1}{+}{\def\signA{1}}{\def\signA{-1}}
+
+    % --------------------------------------------------------
+    % Fenêtre verticale "naturelle" :
+    % - côté "ouverture" : toujours \courbeHaut
+    % - côté opposé :
+    %     * si l'axe horizontal s'y trouve réellement (pas de
+    %       croisement avec la courbe) -> \margeAxe (assez pour
+    %       une flèche correcte)
+    %     * sinon (la courbe touche/traverse l'axe, qui est donc
+    %       déjà du côté "ouverture") -> \margeVide (minimal)
+    % --------------------------------------------------------
+
+    \pgfmathsetmacro{\yTopNat}
+        {(\signA>0) ? \courbeHaut :
+         ((\yO>=0) ? (\yO+\margeAxe) : \margeVide)}
+
+    \pgfmathsetmacro{\yBotNat}
+        {(\signA<0) ? -\courbeHaut :
+         ((\yO<=0) ? (\yO-\margeAxe) : -\margeVide)}
+
+    % --------------------------------------------------------
+    % Mise au carré de la fenêtre locale
+    % --------------------------------------------------------
+
+    \pgfmathsetmacro{\largeurNat}{2*\borneX}
+    \pgfmathsetmacro{\hauteurNat}{\yTopNat - \yBotNat}
+    \pgfmathsetmacro{\cote}{max(\largeurNat,\hauteurNat)}
+
+    \pgfmathsetmacro{\extraH}{(\cote-\largeurNat)/2}
+    \pgfmathsetmacro{\extraV}{(\cote-\hauteurNat)/2}
+
+    \pgfmathsetmacro{\xGauche}{-\borneX-\extraH}
+    \pgfmathsetmacro{\xDroite}{\borneX+\extraH}
+    \pgfmathsetmacro{\yTop}{\yTopNat+\extraV}
+    \pgfmathsetmacro{\yBot}{\yBotNat-\extraV}
+
+    \pgfmathsetmacro{\echelle}{\taille/\cote}
+
+    % --------------------------------------------------------
+    % Dessin
+    % --------------------------------------------------------
+
+    \begin{scope}[
+        x=\echelle cm,
+        y=\echelle cm
+    ]
+
+        \path[use as bounding box]
+            (\xGauche,\yBot)
+            rectangle
+            (\xDroite,\yTop);
+
+        \draw[
+            -{Stealth[length=2.5mm,width=1.5mm]},
+            line width=0.6pt
+        ]
+            (\xGauche,\yO) -- (\xDroite,\yO);
+
+        \draw[
+            -{Stealth[length=2.5mm,width=1.5mm]},
+            line width=0.6pt
+        ]
+            (\xO,\yBot) -- (\xO,\yTop);
+
+        \begin{scope}
+            \clip
+                (\xGauche,\yBot)
+                rectangle
+                (\xDroite,\yTop);
+
+            \ifstrequal{#1}{+}{%
+                \draw[
+                    thick,
+                    domain=-\borneX:\borneX,
+                    samples=100
+                ]
+                plot (\x,{\courbure*(\x)^2});
+            }{%
+                \draw[
+                    thick,
+                    domain=-\borneX:\borneX,
+                    samples=100
+                ]
+                plot (\x,{-\courbure*(\x)^2});
+            }
+
+        \end{scope}
+
+    \end{scope}
+
+\end{tikzpicture}%
+}
+
+
+
+
+% pour faire plein de choses vite et bien : cercle trigo, trinome, variations, tableau de valeurs, stats, etc.
+\RequirePackage{ProfLycee}
+
+
+
