@@ -24,7 +24,6 @@
       <label for="query">Recherche libre</label><input id="query" type="search" placeholder="Identifiant, mot-clé, énoncé…" autocomplete="off">
       <label for="level">Niveau</label><select id="level"><option value="">Tous les niveaux</option><option value="seconde">Seconde</option><option value="premiere">Première</option><option value="terminale">Terminale</option></select>
       <label for="theme">Thème</label><select id="theme"><option value="">Tous les thèmes</option></select>
-      <label for="keyword">Mot-clé</label><select id="keyword"><option value="">Tous les mots-clés</option></select>
       <label class="check"><input id="favorites" type="checkbox"> Mes favoris uniquement</label>
       <button id="reset-filters" class="text-button">Réinitialiser les filtres</button>
       <div class="aside-note"><strong>De l’idée au devoir.</strong><p>Choisissez vos exercices, ajustez leur ordre et téléchargez un PDF prêt à imprimer.</p></div>
@@ -33,6 +32,13 @@
     <main>
       <section id="library-view">
         <div class="page-heading"><div><div class="section-label">MATHÉMATIQUES · LYCÉE</div><h1>Votre prochain devoir<br><em>commence ici.</em></h1><p>Parcourez la base, consultez les énoncés et composez votre sélection.</p></div><div class="stat"><strong id="total-count">—</strong><span>exercices à explorer</span></div></div>
+        <section id="keyword-picker" class="keyword-picker" aria-labelledby="keyword-heading">
+          <div class="keyword-heading-row"><div><h2 id="keyword-heading">Affiner avec les mots-clés</h2><p>Cliquez sur les bulles pour combiner plusieurs mots-clés.</p></div><input id="keyword-search" type="search" aria-label="Rechercher un mot-clé" placeholder="Trouver une bulle…" autocomplete="off"></div>
+          <div class="keyword-mode" role="group" aria-label="Combinaison des mots-clés"><span>Les exercices doivent contenir :</span><button id="keyword-all" type="button" aria-pressed="true">Tous ces mots-clés</button><button id="keyword-any" type="button" aria-pressed="false">Au moins un</button></div>
+          <div id="keyword-selection-row" class="keyword-selection-row" hidden><div class="keyword-selection-heading"><strong id="keyword-selection-count"></strong><button id="keyword-clear" type="button" class="text-button">Tout décocher</button></div><div id="keyword-selected" class="keyword-cloud" aria-label="Mots-clés sélectionnés"></div></div>
+          <div id="keyword-chips" class="keyword-cloud" role="group" aria-label="Choisir les mots-clés"></div><p id="keyword-empty" class="muted small" hidden>Aucun mot-clé correspondant dans ce niveau ou ce thème.</p>
+          <button id="keyword-more" type="button" class="text-button" aria-expanded="false" aria-controls="keyword-chips" hidden>Voir tous les mots-clés</button>
+        </section>
         <div class="results-toolbar"><h2 id="result-count">Chargement de la bibliothèque…</h2><label class="sort-label">Trier<select id="sort"><option value="id">Identifiant</option><option value="theme">Thème</option><option value="level">Niveau</option></select></label></div>
         <div id="results" class="results" aria-live="polite"></div>
         <div class="pagination"><button id="previous" class="secondary">← Précédent</button><span id="page-number"></span><button id="next" class="secondary">Suivant →</button></div>

@@ -2,11 +2,13 @@ import {levels, filterExercises, safeSelection, latexDocument} from './core.mjs'
 import {createSubjectPdf} from './pdf.mjs';
 import {attachCompiler} from './compiler.mjs';
 import {PACKAGE_NAMES} from './ytotech-compiler.mjs';
+import {attachKeywordPicker} from './keywords.mjs';
 const $ = id => document.getElementById(id);
 const PAGE_SIZE = 12, STORAGE = 'atelier.selection.v1', NOTES = 'atelier.annotations.v1';
 let exercises = [], byId = new Map(), filtered = [], selected = [], options = {}, page=0, preview=null;
 let annotations = {}, bytesCache = new Map(), busy=false;
-let filters = {query:'', level:'', theme:'', keyword:'', favorite:false};
+let filters = {query:'', level:'', theme:'', keywords:[], keywordMode:'all', favorite:false};
+let keywordPicker;
 const defaults = {title:'Devoir de mathématiques',className:'',duration:'',columns:1,nameLine:true,answerSpace:0,pagePerExercise:false};
 function el(tag, cls, text) {const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;}
 function button(text, cls, action) {const b=el('button',cls,text);b.type='button';b.addEventListener('click',action);return b;}
@@ -34,9 +36,7 @@ function updateFilterChoices(){
   const themes=[...new Set(scope.map(e=>e.theme))].sort((a,b)=>a.localeCompare(b,'fr'));
   if(!themes.includes(filters.theme))filters.theme='';
   $('theme').replaceChildren(new Option('Tous les thèmes',''),...themes.map(t=>new Option(t,t)));$('theme').value=filters.theme;
-  const keys=[...new Set(scope.filter(e=>!filters.theme||e.theme===filters.theme).flatMap(e=>e.mots_cles))].sort((a,b)=>a.localeCompare(b,'fr'));
-  if(!keys.includes(filters.keyword))filters.keyword='';
-  $('keyword').replaceChildren(new Option('Tous les mots-clés',''),...keys.map(k=>new Option(k.replaceAll('_',' '),k)));$('keyword').value=filters.keyword;
+  keywordPicker?.render();
 }
 function renderResults(){
   filtered=filterExercises(exercises,filters);
@@ -107,9 +107,10 @@ async function readJsonFile(file){if(!file)throw new Error('Aucun fichier choisi
 function wireEvents(){
   $('library-tab').onclick=()=>showView(false);for(const id of ['subject-tab','open-subject'])$(id).onclick=()=>showView(true);$('back-library').onclick=()=>showView(false);
   $('query').oninput=()=>{filters.query=$('query').value;page=0;renderResults();};
-  for(const [id,key]of [['level','level'],['theme','theme'],['keyword','keyword']])$(id).onchange=()=>{filters[key]=$(id).value;if(id==='level')filters.theme='';page=0;updateFilterChoices();renderResults();};
+  for(const [id,key]of [['level','level'],['theme','theme']])$(id).onchange=()=>{filters[key]=$(id).value;if(id==='level')filters.theme='';page=0;updateFilterChoices();renderResults();};
+  keywordPicker=attachKeywordPicker(()=>exercises.filter(e=>(!filters.level||e.niveau===filters.level)&&(!filters.theme||e.theme===filters.theme)),()=>filters,(keywords,mode=filters.keywordMode)=>{filters.keywords=keywords;filters.keywordMode=mode;page=0;renderResults();});
   $('favorites').onchange=()=>{filters.favorite=$('favorites').checked;page=0;renderResults();};$('sort').onchange=()=>{page=0;renderResults();};
-  $('reset-filters').onclick=()=>{filters={query:'',level:'',theme:'',keyword:'',favorite:false};$('query').value='';$('level').value='';$('favorites').checked=false;page=0;updateFilterChoices();renderResults();};
+  $('reset-filters').onclick=()=>{filters={query:'',level:'',theme:'',keywords:[],keywordMode:'all',favorite:false};$('query').value='';$('level').value='';$('favorites').checked=false;page=0;keywordPicker.reset();updateFilterChoices();renderResults();};
   $('previous').onclick=()=>{page--;renderResults();$('result-count').scrollIntoView({behavior:'smooth',block:'start'});};$('next').onclick=()=>{page++;renderResults();$('result-count').scrollIntoView({behavior:'smooth',block:'start'});};
   $('close-dialog').onclick=()=>$('exercise-dialog').close();$('exercise-dialog').addEventListener('click',e=>{if(e.target===$('exercise-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
   $('preview-add').onclick=()=>toggleSelection(preview.id);$('preview-favorite').onclick=()=>{saveAnnotation(preview,{favorite:!preview.favori});$('preview-favorite').textContent=preview.favori?'★ Favori':'☆ Favori';};

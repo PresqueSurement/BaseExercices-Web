@@ -13,3 +13,11 @@
 .pdf-card-pages img{display:block;width:100%;height:auto;background:#fff}
 .pdf-card-pages img+img{border-top:8px solid var(--paper)}
 .pdf-card-caption{display:block;padding:7px 10px;background:var(--paper);border-top:1px solid var(--line);font-size:10px;text-align:right}
+
+/* Sélection visuelle de plusieurs mots-clés. */
+.keyword-picker{margin-top:24px;padding:20px;background:#fff;border:1px solid var(--line);border-radius:11px}
+.keyword-heading-row{display:flex;gap:18px;align-items:center;justify-content:space-between}.keyword-heading-row h2{margin:0 0 4px}.keyword-heading-row p{margin:0;font-size:12px;color:var(--muted)}.keyword-heading-row input{max-width:230px;font-size:12px}
+.keyword-mode{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:17px 0 14px;font-size:11px;color:var(--muted)}.keyword-mode button{border:1px solid var(--line);border-radius:6px;background:white;padding:7px 10px;font-size:11px;color:var(--ink)}.keyword-mode button[aria-pressed=true]{background:var(--green-light);border-color:var(--green);color:var(--green);font-weight:650}
+.keyword-cloud{display:flex;gap:7px;flex-wrap:wrap}.keyword-chip{max-width:100%;min-height:34px;border:1px solid var(--line);border-radius:24px;background:#fafbf7;color:var(--ink);padding:6px 12px;font-size:12px;line-height:1.5;overflow-wrap:anywhere;text-align:left}.keyword-chip:hover{border-color:var(--green);background:var(--green-light)}.keyword-chip.is-selected{background:var(--green);border-color:var(--green);color:white}.keyword-chip.is-selected:hover{background:#174936}
+.keyword-selection-row{border:1px solid #ccdacb;background:#f2f6ef;border-radius:8px;padding:12px;margin:0 0 15px}.keyword-selection-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:9px}.keyword-selection-heading strong{font-size:11px;color:var(--green)}.keyword-selection-heading .text-button{font-size:11px}#keyword-more{margin-top:13px}
+@media(max-width:800px){.keyword-heading-row{align-items:stretch;flex-direction:column;gap:12px}.keyword-heading-row input{max-width:none}.keyword-picker{padding:16px}.keyword-mode span{width:100%}.keyword-chip{min-height:38px}}

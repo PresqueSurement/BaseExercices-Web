@@ -4,11 +4,14 @@ export function normalize(value) {
 }
 export function filterExercises(exercises, filters) {
   const words = normalize(filters.query).trim().split(/\s+/).filter(Boolean);
+  const keywords = filters.keywords ?? (filters.keyword ? [filters.keyword] : []);
   return exercises.filter(e =>
     (!filters.level || e.niveau === filters.level) &&
     (!filters.theme || e.theme === filters.theme) &&
     (!filters.favorite || e.favori) &&
-    (!filters.keyword || e.mots_cles.includes(filters.keyword)) &&
+    (!keywords.length || (filters.keywordMode === 'any'
+      ? keywords.some(key => e.mots_cles.includes(key))
+      : keywords.every(key => e.mots_cles.includes(key)))) &&
     words.every(w => normalize([e.id, e.theme, ...e.mots_cles, e.source, e.text, e.commentaire].join(' ')).includes(w))
   );
 }
