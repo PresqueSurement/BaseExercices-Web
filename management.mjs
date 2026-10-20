@@ -7,7 +7,7 @@ const PASSWORD_STORAGE = 'atelier.base.motdepasse.v1';
 const sameKeywords = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
 export function validateCorrections(data, available, allowed) {
-  if (!data || data.version !== 1 || data.type !== CORRECTIONS_TYPE || !data.corrections || Array.isArray(data.corrections) || typeof data.corrections !== 'object') throw new Error('Ce fichier n’est pas un export de corrections compatible.');
+  if (!data || data.version !== 1 || data.type !== CORRECTIONS_TYPE || !data.corrections || Array.isArray(data.corrections) || typeof data.corrections !== 'object') throw new Error('Sauvegarde de corrections incompatible.');
   const result = Object.create(null);
   for (const [id, entry] of Object.entries(data.corrections)) {
     if (!available.has(id)) throw new Error('Exercice absent de cette base : ' + id);
@@ -24,7 +24,7 @@ export function correctionsFile(corrections) {
   return {version: 1, type: CORRECTIONS_TYPE, exportedAt: new Date().toISOString(), corrections};
 }
 
-export function attachManagement(exercises, onChange, download, toast) {
+export function attachManagement(exercises, onChange, toast) {
   const $ = id => document.getElementById(id);
   const byId = new Map(exercises.map(e => [e.id, e]));
   const originals = new Map(exercises.map(e => [e.id, {mots_cles: [...e.mots_cles], mots_cles_verifies: e.mots_cles_verifies === true}]));
@@ -36,7 +36,7 @@ export function attachManagement(exercises, onChange, download, toast) {
   try {
     const raw = localStorage.getItem(MANAGEMENT_STORAGE);
     if (raw) corrections = validateCorrections(JSON.parse(raw), byId, allowed);
-  } catch {status('La sauvegarde de corrections est illisible ou incompatible. Vous pouvez importer un export valide.');}
+  } catch {status('La sauvegarde locale des corrections est illisible : elle a été ignorée.');}
 
   // Une correction déjà publiée dans le catalogue n'a plus de raison d'être gardée dans ce navigateur.
   const beforePruning = Object.keys(corrections).length;
@@ -103,8 +103,8 @@ export function attachManagement(exercises, onChange, download, toast) {
   }
   function persist() {
     apply();
-    try {localStorage.setItem(MANAGEMENT_STORAGE, JSON.stringify(correctionsFile(corrections))); status('Corrections enregistrées dans ce navigateur. Exportez-les pour les conserver ou changer d’ordinateur.');}
-    catch {status('Le navigateur n’a pas pu enregistrer les corrections. Elles sont en mémoire : exportez-les maintenant.');}
+    try {localStorage.setItem(MANAGEMENT_STORAGE, JSON.stringify(correctionsFile(corrections))); status('Corrections gardées dans ce navigateur. Cliquez sur « Enregistrer dans la base » pour les écrire dans le catalogue.');}
+    catch {status('Le navigateur n’a pas pu garder les corrections. Elles sont en mémoire : enregistrez-les dans la base maintenant.');}
     onChange(); renderList(); renderEditor();
   }
   function update(keywords, verified) {
@@ -139,7 +139,6 @@ export function attachManagement(exercises, onChange, download, toast) {
     const verified = exercises.filter(e => e.mots_cles_verifies).length;
     const changed = Object.keys(corrections).length;
     $('manage-progress').textContent = `${verified} / ${exercises.length} vérifiés · ${changed} exercice${changed > 1 ? 's' : ''} avec une correction locale`;
-    $('manage-export').disabled = !Object.keys(corrections).length;
     refreshSave();
   }
   function renderKeywords() {
@@ -199,17 +198,6 @@ export function attachManagement(exercises, onChange, download, toast) {
   $('manage-verify-next').onclick = () => nextExercise(true);
   $('manage-reset').onclick = () => {if (currentId && confirm('Rétablir les mots-clés et le statut de cet exercice tels qu’ils étaient dans la base publiée ?')) {delete corrections[currentId]; persist();}};
   $('manage-list-prev').onclick = () => {page--; renderList();}; $('manage-list-next').onclick = () => {page++; renderList();};
-  $('manage-export').onclick = () => download(JSON.stringify(correctionsFile(corrections), null, 2), 'application/json', 'corrections-base-exercices-' + new Date().toISOString().slice(0, 10) + '.json');
-  $('manage-import').onchange = async event => {
-    try {
-      const file = event.target.files[0]; if (!file) return;
-      if (file.size > 5 * 1024 * 1024) throw new Error('Fichier trop volumineux (maximum 5 Mo).');
-      const imported = validateCorrections(JSON.parse(await file.text()), byId, allowed);
-      const conflicts = Object.keys(imported).filter(id => corrections[id] && JSON.stringify(imported[id]) !== JSON.stringify(corrections[id]));
-      if (conflicts.length && !confirm(`Remplacer les corrections locales de ${conflicts.length} exercice(s) par celles du fichier ?`)) return;
-      corrections = Object.assign(Object.create(null), corrections, imported); persist(); toast('Corrections importées dans ce navigateur.');
-    } catch (error) {toast(error.message);} finally {event.target.value = '';}
-  };
   $('manage-save').onclick = () => sendToBase(false);
   $('manage-test').onclick = () => sendToBase(true);
   $('manage-remember').onchange = () => {if (!$('manage-remember').checked) try {localStorage.removeItem(PASSWORD_STORAGE);} catch {}};
