@@ -2,6 +2,8 @@ import {normalize, levels} from './core.mjs';
 
 export const MANAGEMENT_STORAGE = 'atelier.corrections-mots-cles.v1';
 export const CORRECTIONS_TYPE = 'atelier.corrections-mots-cles';
+export const SAVE_CONFIG = 'enregistrement-config.json';
+const PASSWORD_STORAGE = 'atelier.base.motdepasse.v1';
 const sameKeywords = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 
 export function validateCorrections(data, available, allowed) {
@@ -35,6 +37,63 @@ export function attachManagement(exercises, onChange, download, toast) {
     const raw = localStorage.getItem(MANAGEMENT_STORAGE);
     if (raw) corrections = validateCorrections(JSON.parse(raw), byId, allowed);
   } catch {status('La sauvegarde de corrections est illisible ou incompatible. Vous pouvez importer un export valide.');}
+
+  // Une correction déjà publiée dans le catalogue n'a plus de raison d'être gardée dans ce navigateur.
+  const beforePruning = Object.keys(corrections).length;
+  for (const id of Object.keys(corrections)) {
+    const value = corrections[id], original = originals.get(id);
+    if (sameKeywords(value.mots_cles, original.mots_cles) && value.mots_cles_verifies === original.mots_cles_verifies) delete corrections[id];
+  }
+  if (Object.keys(corrections).length !== beforePruning) {
+    try {localStorage.setItem(MANAGEMENT_STORAGE, JSON.stringify(correctionsFile(corrections)));} catch {}
+  }
+
+  // --- Enregistrement dans la base (script Google -> catalogue.json sur GitHub) ---
+  let saveUrl = '', saving = false;
+  const count = n => n + ' exercice' + (n > 1 ? 's' : '');
+  const names = ids => ids.slice(0, 8).join(', ') + (ids.length > 8 ? '…' : '');
+  function refreshSave() {
+    const configured = !!saveUrl;
+    $('manage-save').disabled = saving || !configured || !Object.keys(corrections).length;
+    $('manage-test').disabled = saving || !configured;
+    $('manage-save-note').hidden = configured;
+  }
+  function describeResult(data) {
+    const total = data.modifies || 0;
+    const warning = data.ecrases?.length
+      ? ` Attention : ${count(data.ecrases.length)} (${names(data.ecrases)}) avaient été modifiés ailleurs depuis ; vos corrections ${data.essai ? 'les remplaceraient' : 'les ont remplacés'}.` : '';
+    if (!total) return data.essai ? 'Connexion réussie. Rien à enregistrer pour le moment.' : (data.message || 'Rien à enregistrer : la base est déjà à jour.');
+    if (data.essai) return `Connexion réussie. L’enregistrement modifierait ${count(total)} (${names(data.ids)}). Rien n’a été écrit.${warning}`;
+    return `Enregistré : ${count(total)} (${names(data.ids)}), commit ${data.commit}. Le site se met à jour dans 1 à 2 minutes ; rechargez ensuite la page.${warning}`;
+  }
+  function rememberPassword(password) {
+    try {
+      if ($('manage-remember').checked) localStorage.setItem(PASSWORD_STORAGE, password);
+      else localStorage.removeItem(PASSWORD_STORAGE);
+    } catch {}
+  }
+  async function sendToBase(dryRun) {
+    if (saving || !saveUrl) return;
+    const password = $('manage-password').value;
+    if (!password) {status('Saisissez d’abord le mot de passe d’enregistrement.'); $('manage-password').focus(); return;}
+    saving = true; refreshSave();
+    status(dryRun ? 'Test de la connexion avec la base…' : `Enregistrement de ${count(Object.keys(corrections).length)} dans la base…`);
+    try {
+      const response = await fetch(saveUrl, {
+        method: 'POST', headers: {'Content-Type': 'text/plain;charset=utf-8'}, credentials: 'omit', redirect: 'follow', cache: 'no-store',
+        body: JSON.stringify({...correctionsFile(corrections), motDePasse: password, essai: dryRun}), signal: AbortSignal.timeout(120000),
+      });
+      let data;
+      try {data = await response.json();} catch {throw new Error('Le service d’enregistrement n’a pas répondu comme prévu. Vérifiez que le script Google est déployé avec l’accès « Tout le monde ».');}
+      if (!data.ok) throw new Error(data.erreur || 'Échec de l’enregistrement.');
+      rememberPassword(password);
+      status(describeResult(data));
+      if (!dryRun && data.modifies) toast('Corrections enregistrées dans la base.');
+    } catch (error) {
+      status(['TimeoutError', 'AbortError'].includes(error.name) ? 'Le service met trop de temps à répondre. Réessayez dans un instant.'
+        : error instanceof TypeError ? 'Impossible de joindre le service d’enregistrement. Vérifiez votre connexion.' : 'Échec : ' + error.message);
+    } finally {saving = false; refreshSave();}
+  }
 
   function apply() {
     for (const e of exercises) {
@@ -81,6 +140,7 @@ export function attachManagement(exercises, onChange, download, toast) {
     const changed = Object.keys(corrections).length;
     $('manage-progress').textContent = `${verified} / ${exercises.length} vérifiés · ${changed} exercice${changed > 1 ? 's' : ''} avec une correction locale`;
     $('manage-export').disabled = !Object.keys(corrections).length;
+    refreshSave();
   }
   function renderKeywords() {
     const e = byId.get(currentId); if (!e) return;
@@ -150,6 +210,17 @@ export function attachManagement(exercises, onChange, download, toast) {
       corrections = Object.assign(Object.create(null), corrections, imported); persist(); toast('Corrections importées dans ce navigateur.');
     } catch (error) {toast(error.message);} finally {event.target.value = '';}
   };
+  $('manage-save').onclick = () => sendToBase(false);
+  $('manage-test').onclick = () => sendToBase(true);
+  $('manage-remember').onchange = () => {if (!$('manage-remember').checked) try {localStorage.removeItem(PASSWORD_STORAGE);} catch {}};
+  try {
+    const stored = localStorage.getItem(PASSWORD_STORAGE);
+    if (stored) {$('manage-password').value = stored; $('manage-remember').checked = true;}
+  } catch {}
+  fetch(SAVE_CONFIG, {cache: 'no-cache'}).then(r => r.ok ? r.json() : {}).then(config => {
+    saveUrl = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(config.scriptUrl || '') ? config.scriptUrl : '';
+    refreshSave();
+  }).catch(refreshSave);
   $('manage-theme').replaceChildren(new Option('Tous les thèmes', ''), ...[...new Set(exercises.map(e => e.theme))].sort((a, b) => a.localeCompare(b, 'fr')).map(theme => new Option(theme, theme)));
   apply(); currentId = [...byId.keys()].sort()[0] || null; renderList(); renderEditor();
   return {refresh() {renderList(); renderEditor();}};
