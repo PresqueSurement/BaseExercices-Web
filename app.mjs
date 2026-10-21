@@ -1,12 +1,12 @@
 import {levels, filterExercises, safeSelection, latexDocument, cleanOptions, documentFileName, HEADERS} from './core.mjs';
-import {createSubjectPdf} from './pdf.mjs';
 import {attachCompiler} from './compiler.mjs';
 import {PACKAGE_NAMES} from './ytotech-compiler.mjs';
 import {attachKeywordPicker} from './keywords.mjs';
 import {attachManagement} from './management.mjs';
+import {attachLatexEditor} from './latex-editor.mjs';
 const $ = id => document.getElementById(id);
 const PAGE_SIZE = 12, STORAGE = 'atelier.selection.v1', NOTES = 'atelier.annotations.v1';
-let exercises = [], byId = new Map(), filtered = [], selected = [], options = {}, page=0, preview=null;
+let latexEditor, exercises = [], byId = new Map(), filtered = [], selected = [], options = {}, page=0, preview=null;
 let annotations = {}, bytesCache = new Map(), busy=false;
 let filters = {query:'', level:'', theme:'', keywords:[], keywordMode:'all', favorite:false};
 let keywordPicker, management;
@@ -31,7 +31,7 @@ function toggleSelection(id) {if(busy)return;if(selected.includes(id))selected=s
 function previewButton() {$('preview-add').textContent=selected.includes(preview.id)?'Retirer du devoir':'Ajouter au devoir';}
 function syncKind(){const fiche=options.kind==='fiche';$('header-box').hidden=fiche;$('fiche-box').hidden=!fiche;}
 function optionsToForm(){options=cleanOptions(options);$('header').replaceChildren(...HEADERS.map(h=>new Option(h.menu,h.key)));$('header').value=options.header;$('fiche-label').value=options.ficheLabel;$('fiche-title').value=options.ficheTitle;for(const r of document.querySelectorAll('input[name="doc-kind"]'))r.checked=r.value===options.kind;$('columns').value=options.columns;$('answer-space').value=options.answerSpace;$('name-line').checked=options.nameLine;syncKind();}
-function readOptions(){options=cleanOptions({kind:document.querySelector('input[name="doc-kind"]:checked')?.value,header:$('header').value,ficheLabel:$('fiche-label').value,ficheTitle:$('fiche-title').value,columns:Number($('columns').value),answerSpace:Number($('answer-space').value),nameLine:$('name-line').checked});syncKind();persist();}
+function readOptions(){options=cleanOptions({kind:document.querySelector('input[name="doc-kind"]:checked')?.value,header:$('header').value,ficheLabel:$('fiche-label').value,ficheTitle:$('fiche-title').value,columns:Number($('columns').value),answerSpace:Number($('answer-space').value),nameLine:$('name-line').checked});syncKind();persist();latexEditor?.refresh();}
 function showView(view){
   const name=typeof view==='boolean'?(view?'subject':'library'):view;
   for(const item of ['library','subject','management']){
@@ -77,8 +77,8 @@ function renderResults(){
 }
 function renderSelection(){
   const count=selected.length;$('nav-count').textContent=count;$('subject-count').textContent=count;$('tray-count').textContent=`${count} exercice${count!==1?'s':''} sélectionné${count!==1?'s':''}`;
-  $('make-pdf').disabled=busy||!count;$('make-zip').disabled=busy||!count;$('make-latex').disabled=busy||!count;
-  $('clear-selection').disabled=busy||!count;$('save-selection').disabled=busy||!count;
+  $('make-zip').disabled=busy||!count;$('make-latex').disabled=busy||!count;
+  latexEditor?.refresh();$('clear-selection').disabled=busy||!count;$('save-selection').disabled=busy||!count;
   $('load-selection').disabled=busy;
   const nodes=selected.map((id,i)=>{
     const e=byId.get(id),row=el('div','subject-item');const info=el('div','subject-info');info.append(el('strong',null,e.theme.replaceAll('_',' ')),el('span',null,`${e.id} · ${levels[e.niveau]}`));
@@ -94,19 +94,13 @@ function renderSelection(){
 function move(index,delta){if(busy)return;[selected[index],selected[index+delta]]=[selected[index+delta],selected[index]];persist();renderSelection();}
 function openPreview(e){preview=e;$('preview-id').textContent=`${e.id} · ${levels[e.niveau]}`;$('preview-title').textContent=e.theme.replaceAll('_',' ');$('pdf-preview').src=e.pdf+'#toolbar=1&view=FitH';$('download-pdf').href=e.pdf;$('download-pdf').download=e.id+'.pdf';$('tex-preview').textContent=e.tex;$('exercise-note').value=e.commentaire||'';$('preview-favorite').textContent=e.favori?'★ Favori':'☆ Favori';previewButton();setPreviewMode(false);if(!$('exercise-dialog').open)$('exercise-dialog').showModal();}
 function setPreviewMode(tex){$('pdf-preview').hidden=tex;$('tex-preview').hidden=!tex;$('show-pdf').setAttribute('aria-pressed',String(!tex));$('show-tex').setAttribute('aria-pressed',String(tex));}
-async function createPdf(){
-  readOptions();const list=selected.map(id=>byId.get(id)),opts={...options};busy=true;renderSelection();$('export-status').textContent='Préparation du devoir…';
-  try{const bytes=await createSubjectPdf(list,opts,fetchBytes,(i,n)=>$('export-status').textContent=`Assemblage des exercices : ${i} / ${n}`);download(bytes,'application/pdf',slug()+'.pdf');$('export-status').textContent='Votre PDF est prêt. Le téléchargement a été lancé.';}
-  catch(error){$('export-status').textContent='Échec : '+error.message;}
-  finally{busy=false;renderSelection();}
-}
 async function createZip(){
   readOptions();const list=selected.map(id=>byId.get(id)),opts={...options};busy=true;renderSelection();$('export-status').textContent='Préparation des sources…';
   try{
     if(!globalThis.fflate)throw new Error('Le module ZIP n’a pas chargé. Rechargez la page.');
     const {strToU8,zipSync}=globalThis.fflate;
     const missing=list.filter(e=>e.missingImages.length).map(e=>`${e.id} : ${e.missingImages.join(', ')}`);
-    const files={[slug()+'.tex']:strToU8(latexDocument(list,opts)),'selection.json':strToU8(JSON.stringify({version:1,ids:list.map(e=>e.id),options:opts},null,2)),
+    const files={[slug()+'.tex']:strToU8(latexEditor.currentTex()),'selection.json':strToU8(JSON.stringify({version:1,ids:list.map(e=>e.id),options:opts},null,2)),
       'LISEZ-MOI.txt':strToU8('Sources du devoir\n\nLe fichier '+slug()+'.tex reprend les exercices sélectionnés. Les packages personnels sont inclus, ainsi que les images nécessaires. Une distribution LaTeX complète et récente est requise.\n\nPour compiler : lualatex '+slug()+'.tex\n\nImages absentes des sources :\n'+(missing.join('\n')||'Aucune image manquante détectée.'))};
     for(const name of PACKAGE_NAMES)files[name]=await fetchBytes('latex/'+name);
     for(const e of list){files['exercices/'+e.id+'.tex']=strToU8(e.tex);for(const asset of Object.values(e.images)){const name='images/'+asset.split('/').pop();if(!files[name])files[name]=await fetchBytes(asset);}}
@@ -130,8 +124,9 @@ function wireEvents(){
   $('clear-selection').onclick=()=>{if(confirm('Vider la sélection du devoir ? Les exercices de la base seront conservés.')){selected=[];persist();renderSelection();renderResults();}};
   $('save-selection').onclick=()=>{readOptions();jsonDownload({version:1,ids:selected,options},slug()+'-selection.json');};
   $('load-selection').onchange=async e=>{try{const data=safeSelection(await readJsonFile(e.target.files[0]),byId);if(selected.length&&!confirm('Remplacer la sélection actuelle par celle du fichier ?'))return;selected=data.ids;options=data.options;optionsToForm();persist();renderSelection();renderResults();toast('Sélection importée.');}catch(error){toast(error.message);}finally{e.target.value='';}};
-  $('make-pdf').onclick=createPdf;$('make-zip').onclick=createZip;
-  attachCompiler(()=>{readOptions();return {version:1,ids:[...selected],options:{...options}};},toast,request=>request.ids.map(id=>byId.get(id)));
+  $('make-zip').onclick=createZip;
+  latexEditor=attachLatexEditor({getExercises:()=>selected.map(id=>byId.get(id)),getOptions:()=>options,fileName:slug,save:download,toast});
+  attachCompiler(()=>{readOptions();return {version:1,ids:[...selected],options:{...options},tex:latexEditor.currentTex()};},toast,request=>request.ids.map(id=>byId.get(id)));
   $('export-notes').onclick=()=>jsonDownload({version:1,annotations},'mes-annotations.json');
   $('import-notes').onchange=async e=>{try{const data=await readJsonFile(e.target.files[0]);if(data.version!==1||!data.annotations||Array.isArray(data.annotations)||typeof data.annotations!=='object')throw new Error('Fichier d’annotations incompatible.');for(const [id,note]of Object.entries(data.annotations)){if(byId.has(id)&&note&&typeof note==='object')annotations[id]={favorite:typeof note.favorite==='boolean'?note.favorite:byId.get(id).favori,note:typeof note.note==='string'?note.note.slice(0,10000):''};}writeStorage(NOTES,annotations);applyAnnotations();renderResults();toast('Annotations importées.');}catch(error){toast(error.message);}finally{e.target.value='';}};
 }

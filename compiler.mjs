@@ -6,7 +6,7 @@ const ACTIONS='https://github.com/PresqueSurement/BaseExercices/actions/workflow
 const $=id=>document.getElementById(id);
 export function compilerRequest(request,id=crypto.randomUUID()) {
   if(!request.ids.length||request.ids.length>100)throw new Error('La compilation accepte entre 1 et 100 exercices.');
-  return {ref:'main',inputs:{demande:JSON.stringify(request),request_id:id}};
+  return {ref:'main',inputs:{demande:JSON.stringify({...request,tex:undefined}),request_id:id}};
 }
 export function findCompilation(runs,id){return runs.find(run=>run.display_title==='Devoir '+id&&run.event==='workflow_dispatch');}
 export function attachCompiler(getRequest,toast,getExercises){

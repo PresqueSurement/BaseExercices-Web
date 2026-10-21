@@ -9,11 +9,11 @@ function base64(bytes) {
   return btoa(binary);
 }
 
-export async function prepareYtoTechRequest(exercises, options, fetchBytes) {
+export async function prepareYtoTechRequest(exercises, options, fetchBytes, tex) {
   if (!exercises.length || exercises.length > 100) throw new Error('Sélectionnez entre 1 et 100 exercices.');
   const missing = exercises.filter(e => e.missingImages?.length);
-  if (missing.length) throw new Error('Des images manquent pour : ' + missing.map(e => e.id).join(', ') + '. Le PDF rapide reste disponible.');
-  const resources = [{main: true, content: latexDocument(exercises, options)}];
+  if (missing.length) throw new Error('Des images manquent pour : ' + missing.map(e => e.id).join(', ') + '.');
+  const resources = [{main: true, content: typeof tex === 'string' && tex ? tex : latexDocument(exercises, options)}];
   for (const name of PACKAGE_NAMES) resources.push({path: name, file: base64(await fetchBytes('latex/' + name))});
   const images = new Set(exercises.flatMap(e => Object.values(e.images)));
   for (const asset of images) resources.push({path: 'images/' + asset.split('/').pop(), file: base64(await fetchBytes(asset))});
@@ -33,7 +33,7 @@ export async function compileWithYtoTech(payload, fetcher = fetch) {
       const missing = raw.match(/(?:LaTeX Error: File [`']([^`'\r\n]+)['`] not found|!\s*([^\r\n]{1,220}))/);
       if (missing) detail = missing[1] ? 'Package ou fichier absent : ' + missing[1] : missing[2];
     } catch {}
-    throw new Error('La compilation a échoué' + (detail ? ' : ' + detail : ' (HTTP ' + response.status + '). Réessayez avec moins d’exercices ou utilisez le PDF rapide.'));
+    throw new Error('La compilation a échoué' + (detail ? ' : ' + detail : ' (HTTP ' + response.status + '). Réessayez avec moins d’exercices.'));
   }
   const bytes = new Uint8Array(await response.arrayBuffer());
   if (new TextDecoder().decode(bytes.subarray(0, 5)) !== '%PDF-') throw new Error('Le service n’a pas renvoyé un PDF valide.');
@@ -46,8 +46,8 @@ export function attachYtoTechCompiler(getRequest, getExercises) {
   const status = text => {$('ytotech-status').textContent = text;};
   $('compile-label').textContent = 'VOTRE PRÉAMBULE · COMPILATION EN LIGNE';
   $('compile-intro').textContent = 'Compilez votre devoir et téléchargez le PDF ici, sans compte ni connexion.';
-  $('compile-footer').textContent = 'Les sources du devoir, ses images et les packages sont transmis à latex.ytotech.com pour la compilation. Ce service externe est en bêta ; le PDF rapide reste disponible.';
-  $('compilation-note').textContent = 'La compilation en ligne utilise vos packages personnels. Le PDF rapide assemble les énoncés existants sans recompilation.';
+  $('compile-footer').textContent = 'Les sources du devoir, ses images et les packages sont transmis à latex.ytotech.com pour la compilation. Ce service externe est en bêta.';
+  $('compilation-note').textContent = 'La compilation en ligne utilise vos packages personnels.';
   for (const id of ['anonymous-panel', 'manual-compile-panel', 'direct-compile-panel', 'compile-status', 'compile-links']) $(id).hidden = true;
   $('ytotech-panel').hidden = false;
   $('make-latex').onclick = () => {
@@ -65,7 +65,7 @@ export function attachYtoTechCompiler(getRequest, getExercises) {
         const response = await fetch(path, {credentials: 'omit'});
         if (!response.ok) throw new Error('Fichier indisponible : ' + path);
         return new Uint8Array(await response.arrayBuffer());
-      });
+      }, request.tex);   // le LaTeX (éventuellement modifié à la main) est celui de la fenêtre « LaTeX du devoir »
       status('Compilation LaTeX en cours… Laissez cette fenêtre ouverte.');
       const bytes = await compileWithYtoTech(payload);
       pdfUrl = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'}));
@@ -75,7 +75,7 @@ export function attachYtoTechCompiler(getRequest, getExercises) {
       result.hidden = false;
       status('Compilation réussie ! Téléchargez votre PDF ci-dessous.');
     } catch (error) {
-      status(['TimeoutError', 'AbortError'].includes(error.name) ? 'Le service met trop de temps à répondre. Réessayez plus tard ou utilisez le PDF rapide.' : error instanceof TypeError ? 'Impossible de joindre le service de compilation. Vérifiez votre connexion ou utilisez le PDF rapide.' : error.message);
+      status(['TimeoutError', 'AbortError'].includes(error.name) ? 'Le service met trop de temps à répondre. Réessayez plus tard.' : error instanceof TypeError ? 'Impossible de joindre le service de compilation. Vérifiez votre connexion.' : error.message);
     } finally {active = false; $('ytotech-start').disabled = false;}
   };
 }
