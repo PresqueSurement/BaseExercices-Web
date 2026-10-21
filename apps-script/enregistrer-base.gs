@@ -7,7 +7,7 @@
  * il les range dans catalogue.json, sur GitHub, en UN SEUL commit.
  *
  * Ce que le script peut modifier : uniquement, pour chaque exercice envoyé,
- *   - la liste de ses mots-clés (parmi ceux qui existent déjà dans la base),
+ *   - la liste de ses mots-clés (existants, ou nouveaux : minuscules, chiffres et « _ », 60 caractères au plus),
  *   - son statut « mots-clés vérifiés »,
  *   - son thème (un thème existant, ou un nouveau thème de 100 caractères au plus).
  * Tout le reste du catalogue (niveau, énoncé, PDF…) reste intact.
@@ -29,7 +29,8 @@ const DEPOT = {
   branche: 'main',
   fichier: 'catalogue.json',
 };
-const VERSION_SCRIPT = 2;     // 1 = mots-clés seulement ; 2 = mots-clés + thème
+const VERSION_SCRIPT = 3;     // 1 = mots-clés existants ; 2 = + thème ; 3 = + création de nouveaux mots-clés
+const MAX_NOUVEAUX_MOTS_CLES = 20;   // nouveaux mots-clés créés au plus par envoi
 const MAX_EXERCICES = 1500;   // nombre maximum d'exercices par envoi
 const MAX_ECHECS = 10;        // mots de passe faux tolérés pendant 10 minutes
 
@@ -127,9 +128,9 @@ function verifierCorrections(brutes) {
     if (!c || !Array.isArray(c.mots_cles) || c.mots_cles.length > 200 || typeof c.mots_cles_verifies !== 'boolean') {
       throw new Error('Correction invalide pour ' + id);
     }
-    if (c.mots_cles.some(function (m) { return typeof m !== 'string' || m.length > 100; })) {
-      throw new Error('Mot-clé invalide pour ' + id);
-    }
+    c.mots_cles.forEach(function (m) {
+      if (!motCleValide(m)) throw new Error('Mot-clé invalide pour ' + id + ' : « ' + String(m).slice(0, 40) + ' » (minuscules, chiffres et « _ » seulement, 60 caractères au plus).');
+    });
     propres[id] = {
       mots_cles: Array.from(new Set(c.mots_cles)),
       mots_cles_verifies: c.mots_cles_verifies,
@@ -145,6 +146,11 @@ function verifierCorrections(brutes) {
   return propres;
 }
 
+
+// Un mot-clé s'écrit en minuscules sans accents, avec des « _ » entre les mots : « calcul_litteral ».
+function motCleValide(m) {
+  return typeof m === 'string' && m.length <= 60 && /^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(m);
+}
 
 // Un thème doit être un texte court, sans retour à la ligne ni caractère de contrôle.
 function nettoyerTheme(valeur, id) {
@@ -171,15 +177,13 @@ function appliquer(corrections, essai) {
   });
 
   let texte = base.texte;  // le fichier tel qu'il est sur GitHub, modifié petit à petit
+  const nouveauxMotsCles = new Set();   // mots-clés qui n'existent pas encore dans la base
   const modifies = [];   // exercices réellement changés
   const ecrases = [];    // exercices dont le catalogue avait changé depuis le départ de la page
   Object.keys(corrections).forEach(function (id) {
     const exercice = parId[id];
     if (!exercice) throw new Error('Exercice absent de la base : ' + id);
     const c = corrections[id];
-    c.mots_cles.forEach(function (m) {
-      if (!motsExistants.has(m)) throw new Error('Mot-clé inconnu dans la base : ' + m);
-    });
     const themeChange = c.theme !== undefined && c.theme !== exercice.theme;
     const dejaAJour = memeListe(c.mots_cles, exercice.mots_cles)
       && c.mots_cles_verifies === (exercice.mots_cles_verifies === true)
@@ -188,6 +192,7 @@ function appliquer(corrections, essai) {
     const motsChanges = c.depart && !memeListe(c.depart, exercice.mots_cles);
     const themeChangeAilleurs = c.depart_theme !== null && c.depart_theme !== exercice.theme;
     if (motsChanges || themeChangeAilleurs) ecrases.push(id);
+    c.mots_cles.forEach(function (m) { if (!motsExistants.has(m)) nouveauxMotsCles.add(m); });
     modifies.push({
       id: id,
       avant: exercice.mots_cles,
@@ -201,16 +206,21 @@ function appliquer(corrections, essai) {
   });
 
   const ids = modifies.map(function (m) { return m.id; });
+  const nouveaux = Array.from(nouveauxMotsCles).sort();
+  if (nouveaux.length > MAX_NOUVEAUX_MOTS_CLES) {
+    throw new Error('Trop de nouveaux mots-clés dans un seul envoi (' + nouveaux.length + ', maximum ' + MAX_NOUVEAUX_MOTS_CLES + ').');
+  }
   if (!modifies.length) {
-    return { modifies: 0, ids: [], ecrases: [], message: 'Rien à enregistrer : la base est déjà à jour.' };
+    return { modifies: 0, ids: [], ecrases: [], nouveaux_mots_cles: [], message: 'Rien à enregistrer : la base est déjà à jour.' };
   }
   if (essai) {
-    return { modifies: modifies.length, ids: ids, ecrases: ecrases, details: modifies.slice(0, 20) };
+    return { modifies: modifies.length, ids: ids, ecrases: ecrases, nouveaux_mots_cles: nouveaux, details: modifies.slice(0, 20) };
   }
 
   const themes = modifies.filter(function (m) { return m.theme_avant !== m.theme_apres; });
   const message = 'Corrections : ' + modifies.length + ' exercice' + (modifies.length > 1 ? 's' : '')
     + '\n\nExercices : ' + ids.slice(0, 40).join(', ') + (ids.length > 40 ? ', …' : '')
+    + (nouveaux.length ? '\n\nNouveaux mots-clés : ' + nouveaux.join(', ') : '')
     + (themes.length
       ? '\n\nThèmes modifiés :\n' + themes.slice(0, 20).map(function (m) {
           return '- ' + m.id + ' : ' + m.theme_avant + ' → ' + m.theme_apres;
@@ -223,6 +233,7 @@ function appliquer(corrections, essai) {
     modifies: modifies.length,
     ids: ids,
     ecrases: ecrases,
+    nouveaux_mots_cles: nouveaux,
     commit: commit.sha.slice(0, 7),
     commit_url: commit.html_url,
   };

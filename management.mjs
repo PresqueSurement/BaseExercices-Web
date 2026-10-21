@@ -5,18 +5,20 @@ export const CORRECTIONS_TYPE = 'atelier.corrections-mots-cles';
 export const SAVE_CONFIG = 'enregistrement-config.json';
 const PASSWORD_STORAGE = 'atelier.base.motdepasse.v1';
 const NEW_THEME = '__nouveau_theme__';
+const isKeyword = key => typeof key === 'string' && key.length <= 60 && /^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(key);
+const keywordSlug = text => normalize(text).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 const sameKeywords = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 const sameState = (value, original) => sameKeywords(value.mots_cles, original.mots_cles)
   && value.mots_cles_verifies === original.mots_cles_verifies && value.theme === original.theme;
 const cleanTheme = text => String(text ?? '').replace(/\s+/g, ' ').trim();
 const validTheme = text => typeof text === 'string' && text === cleanTheme(text) && text.length > 0 && text.length <= 100 && !/[\u0000-\u001f\u007f]/.test(text);
 
-export function validateCorrections(data, available, allowed) {
+export function validateCorrections(data, available) {
   if (!data || data.version !== 1 || data.type !== CORRECTIONS_TYPE || !data.corrections || Array.isArray(data.corrections) || typeof data.corrections !== 'object') throw new Error('Sauvegarde de corrections incompatible.');
   const result = Object.create(null);
   for (const [id, entry] of Object.entries(data.corrections)) {
     if (!available.has(id)) throw new Error('Exercice absent de cette base : ' + id);
-    if (!entry || !Array.isArray(entry.mots_cles) || entry.mots_cles.length > 200 || entry.mots_cles.some(key => typeof key !== 'string' || !allowed.has(key)) || typeof entry.mots_cles_verifies !== 'boolean') throw new Error('Correction invalide pour ' + id);
+    if (!entry || !Array.isArray(entry.mots_cles) || entry.mots_cles.length > 200 || entry.mots_cles.some(key => !isKeyword(key)) || typeof entry.mots_cles_verifies !== 'boolean') throw new Error('Correction invalide pour ' + id);
     const original = entry.original_mots_cles;
     if (original !== undefined && (!Array.isArray(original) || original.length > 200 || original.some(key => typeof key !== 'string' || key.length > 100))) throw new Error('Historique invalide pour ' + id);
     if (entry.theme !== undefined && !validTheme(entry.theme)) throw new Error('Thème invalide pour ' + id);
@@ -37,14 +39,15 @@ export function attachManagement(exercises, onChange, toast) {
   const $ = id => document.getElementById(id);
   const byId = new Map(exercises.map(e => [e.id, e]));
   const originals = new Map(exercises.map(e => [e.id, {mots_cles: [...e.mots_cles], mots_cles_verifies: e.mots_cles_verifies === true, theme: e.theme}]));
-  const allowed = new Set(exercises.flatMap(e => e.mots_cles));
-  const keys = [...allowed].sort((a, b) => a.localeCompare(b, 'fr'));
+  const baseKeys = new Set([...originals.values()].flatMap(o => o.mots_cles));   // mots-clés déjà présents dans la base publiée
+  const extraKeywords = new Set();                                              // mots-clés créés pendant cette session
+  const allKeywords = () => [...new Set([...baseKeys, ...extraKeywords, ...exercises.flatMap(e => e.mots_cles)])].sort((a, b) => a.localeCompare(b, 'fr'));
   let corrections = Object.create(null), currentId = null, list = [], page = 0;
   const SIZE = 20;
   const status = text => {$('manage-storage-status').textContent = text;};
   try {
     const raw = localStorage.getItem(MANAGEMENT_STORAGE);
-    if (raw) corrections = validateCorrections(JSON.parse(raw), byId, allowed);
+    if (raw) corrections = validateCorrections(JSON.parse(raw), byId);
   } catch {status('La sauvegarde locale des corrections est illisible : elle a été ignorée.');}
 
   // Une correction déjà publiée dans le catalogue n'a plus de raison d'être gardée dans ce navigateur.
@@ -69,11 +72,13 @@ export function attachManagement(exercises, onChange, toast) {
   }
   function describeResult(data) {
     const total = data.modifies || 0;
+    const fresh = data.nouveaux_mots_cles || [];
+    const created = fresh.length ? ` ${data.essai ? 'Il créerait' : 'Créé'} ${fresh.length} nouveau${fresh.length > 1 ? 'x' : ''} mot${fresh.length > 1 ? 's' : ''}-clé${fresh.length > 1 ? 's' : ''} : ${fresh.join(', ')}.` : '';
     const warning = data.ecrases?.length
       ? ` Attention : ${count(data.ecrases.length)} (${names(data.ecrases)}) avaient été modifiés ailleurs depuis ; vos corrections ${data.essai ? 'les remplaceraient' : 'les ont remplacés'}.` : '';
     if (!total) return data.essai ? 'Connexion réussie. Rien à enregistrer pour le moment.' : (data.message || 'Rien à enregistrer : la base est déjà à jour.');
-    if (data.essai) return `Connexion réussie. L’enregistrement modifierait ${count(total)} (${names(data.ids)}). Rien n’a été écrit.${warning}`;
-    return `Enregistré : ${count(total)} (${names(data.ids)}), commit ${data.commit}. Le site se met à jour dans 1 à 2 minutes ; rechargez ensuite la page.${warning}`;
+    if (data.essai) return `Connexion réussie. L’enregistrement modifierait ${count(total)} (${names(data.ids)}). Rien n’a été écrit.${created}${warning}`;
+    return `Enregistré : ${count(total)} (${names(data.ids)}), commit ${data.commit}. Le site se met à jour dans 1 à 2 minutes ; rechargez ensuite la page.${created}${warning}`;
   }
   function rememberPassword(password) {
     try {
@@ -86,6 +91,7 @@ export function attachManagement(exercises, onChange, toast) {
     const password = $('manage-password').value;
     if (!password) {status('Saisissez d’abord le mot de passe d’enregistrement.'); $('manage-password').focus(); return;}
     const themeChanges = Object.values(corrections).filter(c => c.theme !== c.original_theme).length;
+    const newKeywords = [...new Set(Object.values(corrections).flatMap(c => c.mots_cles))].filter(key => !baseKeys.has(key));
     saving = true; refreshSave();
     status(dryRun ? 'Test de la connexion avec la base…' : `Enregistrement de ${count(Object.keys(corrections).length)} dans la base…`);
     try {
@@ -95,10 +101,14 @@ export function attachManagement(exercises, onChange, toast) {
       });
       let data;
       try {data = await response.json();} catch {throw new Error('Le service d’enregistrement n’a pas répondu comme prévu. Vérifiez que le script Google est déployé avec l’accès « Tout le monde ».');}
+      if (!data.ok && /Mot-clé inconnu/.test(data.erreur || '')) throw new Error('Le script Google n’est pas à jour : il refuse les nouveaux mots-clés. Republiez-le avec la dernière version (voir apps-script/LISEZ-MOI.md) ; vos corrections restent gardées dans ce navigateur.');
       if (!data.ok) throw new Error(data.erreur || 'Échec de l’enregistrement.');
       rememberPassword(password);
-      const outdated = themeChanges && data.schema !== 2
-        ? ` ⚠ Le script Google n’est pas à jour : il ignore les changements de thème (${count(themeChanges)}). Republiez-le avec la dernière version (voir apps-script/LISEZ-MOI.md) ; vos changements de thème restent gardés dans ce navigateur.` : '';
+      const missing = [];
+      if (themeChanges && (data.schema || 1) < 2) missing.push('les changements de thème');
+      if (newKeywords.length && (data.schema || 1) < 3) missing.push('les nouveaux mots-clés');
+      const outdated = missing.length
+        ? ` ⚠ Le script Google n’est pas à jour : il ne peut pas enregistrer ${missing.join(' ni ')}. Republiez-le avec la dernière version (voir apps-script/LISEZ-MOI.md) ; vos changements restent gardés dans ce navigateur.` : '';
       status(describeResult(data) + outdated);
       if (!dryRun && data.modifies) toast('Corrections enregistrées dans la base.');
     } catch (error) {
@@ -182,6 +192,16 @@ export function attachManagement(exercises, onChange, toast) {
     $('manage-progress').textContent = `${verified} / ${exercises.length} vérifiés · ${changed} exercice${changed > 1 ? 's' : ''} avec une correction locale`;
     refreshSave();
   }
+  function createKeyword() {
+    const e = byId.get(currentId); if (!e) return;
+    const name = keywordSlug($('manage-keyword-search').value);
+    if (!isKeyword(name)) {toast('Nom de mot-clé invalide (60 caractères au plus).'); return;}
+    extraKeywords.add(name);
+    $('manage-keyword-search').value = '';
+    if (e.mots_cles.includes(name)) renderKeywords();
+    else update({mots_cles: [...e.mots_cles, name], mots_cles_verifies: false});
+    toast(`Mot-clé « ${name} » créé et ajouté à ${e.id}.`);
+  }
   function renderKeywords() {
     const e = byId.get(currentId); if (!e) return;
     const query = normalize($('manage-keyword-search').value).trim();
@@ -201,9 +221,14 @@ export function attachManagement(exercises, onChange, toast) {
     };
     $('manage-current-keywords').replaceChildren(...e.mots_cles.map(key => makeChip(key, true)));
     if (!e.mots_cles.length) $('manage-current-keywords').textContent = 'Aucun mot-clé attribué.';
+    const keys = allKeywords();
     const visible = keys.filter(key => normalize(key.replaceAll('_', ' ')).includes(query));
     $('manage-keywords').replaceChildren(...visible.map(key => makeChip(key)));
-    $('manage-no-keywords').hidden = !!visible.length;
+    const wanted = keywordSlug($('manage-keyword-search').value);
+    const canCreate = isKeyword(wanted) && !keys.includes(wanted);
+    $('manage-create-keyword').hidden = !canCreate;
+    if (canCreate) $('manage-create-keyword-button').textContent = `➕ Créer le mot-clé « ${wanted} » et l’ajouter à cet exercice`;
+    $('manage-no-keywords').hidden = !!visible.length || canCreate;
   }
   function renderEditor() {
     const e = byId.get(currentId);
@@ -235,6 +260,7 @@ export function attachManagement(exercises, onChange, toast) {
   }
   for (const id of ['manage-query', 'manage-level', 'manage-theme', 'manage-state']) $(id).addEventListener(id === 'manage-query' ? 'input' : 'change', () => {page = 0; renderList(); if (!list.some(e => e.id === currentId)) {currentId = list[0]?.id || null; renderList(); renderEditor();}});
   $('manage-keyword-search').oninput = renderKeywords;
+  $('manage-create-keyword-button').onclick = createKeyword;
   $('manage-verified').onchange = () => {if (currentId) update({mots_cles_verifies: $('manage-verified').checked});};
   $('manage-exercise-theme').onchange = () => {
     const value = $('manage-exercise-theme').value;
