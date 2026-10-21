@@ -227,7 +227,7 @@ export function attachManagement(exercises, onChange, toast) {
     const wanted = keywordSlug($('manage-keyword-search').value);
     const canCreate = isKeyword(wanted) && !keys.includes(wanted);
     $('manage-create-keyword').hidden = !canCreate;
-    if (canCreate) $('manage-create-keyword-button').textContent = `➕ Créer le mot-clé « ${wanted} » et l’ajouter à cet exercice`;
+    if (canCreate) $('manage-create-keyword-button').textContent = `➕ Créer le mot-clé « ${wanted.replaceAll('_', ' ')} » et l’ajouter à cet exercice`;
     $('manage-no-keywords').hidden = !!visible.length || canCreate;
   }
   function renderEditor() {
