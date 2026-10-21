@@ -35,3 +35,8 @@
 .manage-list-item.is-deleted{border-color:#8a2b2b;color:#8a2b2b}.manage-list-item.is-deleted strong{text-decoration:line-through}
 #manage-editor.is-deleted .manage-pdf-pages,#manage-editor.is-deleted .keyword-cloud{opacity:.45}
 button.danger{margin-left:auto;background:#fff;color:#8a2b2b;border:2px solid #8a2b2b;border-radius:8px;padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}button.danger:hover{background:#8a2b2b;color:#fff}
+
+.manage-summary-box{flex:1;min-width:0}.manage-summary-box p.manage-summary-count{font-size:14px;font-weight:700;color:var(--ink);margin:10px 0 4px}
+.manage-summary{list-style:none;margin:4px 0 8px;padding:0}.manage-summary li{font-size:13px;margin:3px 0;color:var(--ink)}.manage-summary .icon{display:inline-block;width:1.6em}.manage-summary li.is-danger{color:#8a2b2b}
+.manage-summary-details summary{cursor:pointer;font-size:13px;color:var(--green);font-weight:600;margin:6px 0}.manage-summary-list{list-style:none;margin:6px 0 0;padding:0;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.manage-summary-list li{border-bottom:1px solid var(--line)}.manage-summary-list li:last-child{border-bottom:0}.manage-summary-list button{all:unset;display:block;box-sizing:border-box;width:100%;padding:7px 11px;font-size:12.5px;cursor:pointer;color:var(--ink)}.manage-summary-list button:hover,.manage-summary-list button:focus-visible{background:var(--green-light)}.manage-summary-list b{margin-right:8px}.manage-summary-list .is-danger{color:#8a2b2b}
