@@ -1,8 +1,9 @@
-# Enregistrer les corrections de mots-clés dans la base
+# Enregistrer les corrections (mots-clés, thème) dans la base
 
-Le fichier `enregistrer-base.gs` est un script **Google Apps Script**. Il reçoit les corrections de mots-clés
+Le fichier `enregistrer-base.gs` est un script **Google Apps Script**. Il reçoit les corrections
 envoyées par la page « Gérer la base » et les écrit dans `catalogue.json` sur GitHub, en un seul commit.
-Il ne modifie que les mots-clés et le statut « vérifié » des exercices envoyés.
+Il ne modifie que trois choses, pour les exercices envoyés : les mots-clés, le statut « vérifié » et le thème.
+Le niveau, l'énoncé et les PDF ne sont jamais modifiés.
 
 ## Installation (une seule fois)
 
@@ -33,8 +34,9 @@ Dans la page, onglet *Gérer la base* : saisir le mot de passe, corriger les mot
 *Enregistrer dans la base*. *Tester la connexion* vérifie tout sans rien écrire.
 Le site se met à jour 1 à 2 minutes après l'enregistrement.
 
-## Si vous modifiez le script
-Après toute modification de `enregistrer-base.gs`, il faut republier : *Déployer* → *Gérer les déploiements* →
+## Si le script change (version 2 : ajout du thème)
+Le fichier `enregistrer-base.gs` du dépôt est la référence. Quand il change, il faut **recopier son contenu**
+dans l'éditeur Apps Script (remplacer tout `Code.gs`), enregistrer, puis republier : *Déployer* → *Gérer les déploiements* →
 crayon → *Version* : *Nouvelle version* → *Déployer*. L'URL ne change pas.
 
 ## Annuler un enregistrement

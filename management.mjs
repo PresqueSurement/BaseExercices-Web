@@ -4,7 +4,12 @@ export const MANAGEMENT_STORAGE = 'atelier.corrections-mots-cles.v1';
 export const CORRECTIONS_TYPE = 'atelier.corrections-mots-cles';
 export const SAVE_CONFIG = 'enregistrement-config.json';
 const PASSWORD_STORAGE = 'atelier.base.motdepasse.v1';
+const NEW_THEME = '__nouveau_theme__';
 const sameKeywords = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
+const sameState = (value, original) => sameKeywords(value.mots_cles, original.mots_cles)
+  && value.mots_cles_verifies === original.mots_cles_verifies && value.theme === original.theme;
+const cleanTheme = text => String(text ?? '').replace(/\s+/g, ' ').trim();
+const validTheme = text => typeof text === 'string' && text === cleanTheme(text) && text.length > 0 && text.length <= 100 && !/[\u0000-\u001f\u007f]/.test(text);
 
 export function validateCorrections(data, available, allowed) {
   if (!data || data.version !== 1 || data.type !== CORRECTIONS_TYPE || !data.corrections || Array.isArray(data.corrections) || typeof data.corrections !== 'object') throw new Error('Sauvegarde de corrections incompatible.');
@@ -14,8 +19,12 @@ export function validateCorrections(data, available, allowed) {
     if (!entry || !Array.isArray(entry.mots_cles) || entry.mots_cles.length > 200 || entry.mots_cles.some(key => typeof key !== 'string' || !allowed.has(key)) || typeof entry.mots_cles_verifies !== 'boolean') throw new Error('Correction invalide pour ' + id);
     const original = entry.original_mots_cles;
     if (original !== undefined && (!Array.isArray(original) || original.length > 200 || original.some(key => typeof key !== 'string' || key.length > 100))) throw new Error('Historique invalide pour ' + id);
+    if (entry.theme !== undefined && !validTheme(entry.theme)) throw new Error('Thème invalide pour ' + id);
+    if (entry.original_theme !== undefined && !validTheme(entry.original_theme)) throw new Error('Thème d’origine invalide pour ' + id);
     result[id] = {mots_cles: [...new Set(entry.mots_cles)], mots_cles_verifies: entry.mots_cles_verifies,
-      original_mots_cles: [...(original || available.get(id).mots_cles)]};
+      theme: entry.theme ?? available.get(id).theme,
+      original_mots_cles: [...(original || available.get(id).mots_cles)],
+      original_theme: entry.original_theme ?? available.get(id).theme};
   }
   return result;
 }
@@ -27,7 +36,7 @@ export function correctionsFile(corrections) {
 export function attachManagement(exercises, onChange, toast) {
   const $ = id => document.getElementById(id);
   const byId = new Map(exercises.map(e => [e.id, e]));
-  const originals = new Map(exercises.map(e => [e.id, {mots_cles: [...e.mots_cles], mots_cles_verifies: e.mots_cles_verifies === true}]));
+  const originals = new Map(exercises.map(e => [e.id, {mots_cles: [...e.mots_cles], mots_cles_verifies: e.mots_cles_verifies === true, theme: e.theme}]));
   const allowed = new Set(exercises.flatMap(e => e.mots_cles));
   const keys = [...allowed].sort((a, b) => a.localeCompare(b, 'fr'));
   let corrections = Object.create(null), currentId = null, list = [], page = 0;
@@ -42,7 +51,7 @@ export function attachManagement(exercises, onChange, toast) {
   const beforePruning = Object.keys(corrections).length;
   for (const id of Object.keys(corrections)) {
     const value = corrections[id], original = originals.get(id);
-    if (sameKeywords(value.mots_cles, original.mots_cles) && value.mots_cles_verifies === original.mots_cles_verifies) delete corrections[id];
+    if (sameState(value, original)) delete corrections[id];
   }
   if (Object.keys(corrections).length !== beforePruning) {
     try {localStorage.setItem(MANAGEMENT_STORAGE, JSON.stringify(correctionsFile(corrections)));} catch {}
@@ -76,6 +85,7 @@ export function attachManagement(exercises, onChange, toast) {
     if (saving || !saveUrl) return;
     const password = $('manage-password').value;
     if (!password) {status('Saisissez d’abord le mot de passe d’enregistrement.'); $('manage-password').focus(); return;}
+    const themeChanges = Object.values(corrections).filter(c => c.theme !== c.original_theme).length;
     saving = true; refreshSave();
     status(dryRun ? 'Test de la connexion avec la base…' : `Enregistrement de ${count(Object.keys(corrections).length)} dans la base…`);
     try {
@@ -87,7 +97,9 @@ export function attachManagement(exercises, onChange, toast) {
       try {data = await response.json();} catch {throw new Error('Le service d’enregistrement n’a pas répondu comme prévu. Vérifiez que le script Google est déployé avec l’accès « Tout le monde ».');}
       if (!data.ok) throw new Error(data.erreur || 'Échec de l’enregistrement.');
       rememberPassword(password);
-      status(describeResult(data));
+      const outdated = themeChanges && data.schema !== 2
+        ? ` ⚠ Le script Google n’est pas à jour : il ignore les changements de thème (${count(themeChanges)}). Republiez-le avec la dernière version (voir apps-script/LISEZ-MOI.md) ; vos changements de thème restent gardés dans ce navigateur.` : '';
+      status(describeResult(data) + outdated);
       if (!dryRun && data.modifies) toast('Corrections enregistrées dans la base.');
     } catch (error) {
       status(['TimeoutError', 'AbortError'].includes(error.name) ? 'Le service met trop de temps à répondre. Réessayez dans un instant.'
@@ -98,22 +110,51 @@ export function attachManagement(exercises, onChange, toast) {
   function apply() {
     for (const e of exercises) {
       const value = corrections[e.id] || originals.get(e.id);
-      e.mots_cles = [...value.mots_cles]; e.mots_cles_verifies = value.mots_cles_verifies;
+      e.mots_cles = [...value.mots_cles]; e.mots_cles_verifies = value.mots_cles_verifies; e.theme = value.theme;
     }
   }
   function persist() {
     apply();
     try {localStorage.setItem(MANAGEMENT_STORAGE, JSON.stringify(correctionsFile(corrections))); status('Corrections gardées dans ce navigateur. Cliquez sur « Enregistrer dans la base » pour les écrire dans le catalogue.');}
     catch {status('Le navigateur n’a pas pu garder les corrections. Elles sont en mémoire : enregistrez-les dans la base maintenant.');}
-    onChange(); renderList(); renderEditor();
+    refreshThemeFilter(); onChange(); renderList(); renderEditor();
   }
-  function update(keywords, verified) {
+  // changes : une partie de {mots_cles, mots_cles_verifies, theme} ; le reste garde sa valeur actuelle.
+  function update(changes) {
     const e = byId.get(currentId), original = originals.get(currentId);
     if (!e) return;
-    if (sameKeywords(keywords, original.mots_cles) && verified === original.mots_cles_verifies) delete corrections[currentId];
-    else corrections[currentId] = {mots_cles: [...keywords], mots_cles_verifies: verified,
-      original_mots_cles: corrections[currentId]?.original_mots_cles || [...original.mots_cles]};
+    const next = {mots_cles: [...e.mots_cles], mots_cles_verifies: e.mots_cles_verifies === true, theme: e.theme, ...changes};
+    next.mots_cles = [...next.mots_cles];
+    if (sameState(next, original)) delete corrections[currentId];
+    else corrections[currentId] = {...next,
+      original_mots_cles: corrections[currentId]?.original_mots_cles || [...original.mots_cles],
+      original_theme: corrections[currentId]?.original_theme || original.theme};
     persist();
+  }
+  const allThemes = () => [...new Set(exercises.map(e => e.theme))].sort((a, b) => a.localeCompare(b, 'fr'));
+  function refreshThemeFilter() {
+    const select = $('manage-theme'), current = select.value, themes = allThemes();
+    select.replaceChildren(new Option('Tous les thèmes', ''), ...themes.map(theme => new Option(theme, theme)));
+    select.value = themes.includes(current) ? current : '';
+  }
+  function renderThemeMenu(e) {
+    const select = $('manage-exercise-theme');
+    const sameLevel = [...new Set(exercises.filter(x => x.niveau === e.niveau).map(x => x.theme))].sort((a, b) => a.localeCompare(b, 'fr'));
+    const others = allThemes().filter(theme => !sameLevel.includes(theme));
+    const group = (label, themes) => {const g = document.createElement('optgroup'); g.label = label; g.append(...themes.map(theme => new Option(theme, theme))); return g;};
+    select.replaceChildren(group('Thèmes de ' + levels[e.niveau].toLowerCase(), sameLevel), ...(others.length ? [group('Autres thèmes', others)] : []), new Option('➕ Nouveau thème…', NEW_THEME));
+    select.value = e.theme;
+    $('manage-new-theme-box').hidden = true;
+  }
+  function applyNewTheme() {
+    const e = byId.get(currentId); if (!e) return;
+    const name = cleanTheme($('manage-new-theme').value);
+    if (!name) {toast('Saisissez le nom du nouveau thème.'); return;}
+    if (!validTheme(name)) {toast('Nom de thème invalide : 100 caractères au plus, sans caractère spécial.'); return;}
+    const existing = allThemes().find(theme => normalize(theme) === normalize(name));
+    $('manage-new-theme').value = '';
+    if (existing) toast(`Le thème « ${existing} » existe déjà : il a été utilisé.`);
+    if ((existing || name) !== e.theme) update({theme: existing || name}); else renderEditor();
   }
   function renderList() {
     const query = normalize($('manage-query').value).trim().split(/\s+/).filter(Boolean);
@@ -152,7 +193,7 @@ export function attachManagement(exercises, onChange, toast) {
       button.dataset.keyword = key;
       if (!removeOnly) button.setAttribute('aria-pressed', String(selected));
       button.onclick = () => {
-        update(selected ? e.mots_cles.filter(k => k !== key) : [...e.mots_cles, key], false);
+        update({mots_cles: selected ? e.mots_cles.filter(k => k !== key) : [...e.mots_cles, key], mots_cles_verifies: false});
         const target = [...$('manage-keywords').querySelectorAll('button')].find(b => b.dataset.keyword === key) || $('manage-keyword-search');
         target.focus({preventScroll: true});
       };
@@ -170,6 +211,7 @@ export function attachManagement(exercises, onChange, toast) {
     if (!e) return;
     $('manage-exercise-heading').textContent = `${e.id} · ${e.theme.replaceAll('_', ' ')}`;
     $('manage-exercise-info').textContent = `${levels[e.niveau]}${e.source ? ' · Source : ' + e.source : ''}`;
+    renderThemeMenu(e);
     $('manage-verified').checked = !!e.mots_cles_verifies;
     $('manage-current-state').textContent = e.mots_cles_verifies ? '✓ Mots-clés vérifiés' : 'Mots-clés à vérifier';
     $('manage-reset').disabled = !corrections[e.id];
@@ -187,16 +229,23 @@ export function attachManagement(exercises, onChange, toast) {
   }
   function nextExercise(verify = false) {
     const index = list.findIndex(e => e.id === currentId), next = list[index + 1];
-    if (verify && currentId) update(byId.get(currentId).mots_cles, true);
+    if (verify && currentId) update({mots_cles_verifies: true});
     if (next) {currentId = next.id; page = Math.floor(Math.max(0, list.findIndex(e => e.id === currentId)) / SIZE); $('manage-keyword-search').value = ''; renderList(); renderEditor();}
     else toast('Vous êtes au dernier exercice de cette liste.');
   }
   for (const id of ['manage-query', 'manage-level', 'manage-theme', 'manage-state']) $(id).addEventListener(id === 'manage-query' ? 'input' : 'change', () => {page = 0; renderList(); if (!list.some(e => e.id === currentId)) {currentId = list[0]?.id || null; renderList(); renderEditor();}});
   $('manage-keyword-search').oninput = renderKeywords;
-  $('manage-verified').onchange = () => {if (currentId) update(byId.get(currentId).mots_cles, $('manage-verified').checked);};
+  $('manage-verified').onchange = () => {if (currentId) update({mots_cles_verifies: $('manage-verified').checked});};
+  $('manage-exercise-theme').onchange = () => {
+    const value = $('manage-exercise-theme').value;
+    if (value === NEW_THEME) {$('manage-new-theme-box').hidden = false; $('manage-new-theme').focus();}
+    else if (currentId) update({theme: value});
+  };
+  $('manage-new-theme-ok').onclick = applyNewTheme;
+  $('manage-new-theme').onkeydown = event => {if (event.key === 'Enter') {event.preventDefault(); applyNewTheme();}};
   $('manage-next-exercise').onclick = () => nextExercise();
   $('manage-verify-next').onclick = () => nextExercise(true);
-  $('manage-reset').onclick = () => {if (currentId && confirm('Rétablir les mots-clés et le statut de cet exercice tels qu’ils étaient dans la base publiée ?')) {delete corrections[currentId]; persist();}};
+  $('manage-reset').onclick = () => {if (currentId && confirm('Rétablir les mots-clés, le thème et le statut de cet exercice tels qu’ils étaient dans la base publiée ?')) {delete corrections[currentId]; persist();}};
   $('manage-list-prev').onclick = () => {page--; renderList();}; $('manage-list-next').onclick = () => {page++; renderList();};
   $('manage-save').onclick = () => sendToBase(false);
   $('manage-test').onclick = () => sendToBase(true);
@@ -209,7 +258,6 @@ export function attachManagement(exercises, onChange, toast) {
     saveUrl = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(config.scriptUrl || '') ? config.scriptUrl : '';
     refreshSave();
   }).catch(refreshSave);
-  $('manage-theme').replaceChildren(new Option('Tous les thèmes', ''), ...[...new Set(exercises.map(e => e.theme))].sort((a, b) => a.localeCompare(b, 'fr')).map(theme => new Option(theme, theme)));
-  apply(); currentId = [...byId.keys()].sort()[0] || null; renderList(); renderEditor();
+  apply(); refreshThemeFilter(); currentId = [...byId.keys()].sort()[0] || null; renderList(); renderEditor();
   return {refresh() {renderList(); renderEditor();}};
 }

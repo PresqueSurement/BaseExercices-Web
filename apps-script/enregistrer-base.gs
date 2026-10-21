@@ -1,15 +1,19 @@
 /**
- * ENREGISTREMENT DES CORRECTIONS DE MOTS-CLÉS DANS LA BASE D'EXERCICES
+ * ENREGISTREMENT DES CORRECTIONS DANS LA BASE D'EXERCICES
  * ====================================================================
  *
  * Ce script tourne chez Google (Apps Script), pas sur GitHub.
- * La page « Gérer la base » lui envoie les corrections de mots-clés ;
+ * La page « Gérer la base » lui envoie les corrections (mots-clés, thème) ;
  * il les range dans catalogue.json, sur GitHub, en UN SEUL commit.
  *
  * Ce que le script peut modifier : uniquement, pour chaque exercice envoyé,
  *   - la liste de ses mots-clés (parmi ceux qui existent déjà dans la base),
- *   - son statut « mots-clés vérifiés ».
- * Tout le reste du catalogue reste intact.
+ *   - son statut « mots-clés vérifiés »,
+ *   - son thème (un thème existant, ou un nouveau thème de 100 caractères au plus).
+ * Tout le reste du catalogue (niveau, énoncé, PDF…) reste intact.
+ *
+ * Le numéro de version ci-dessous est renvoyé à la page, qui s'en sert pour
+ * vérifier que le script publié chez Google est bien à jour.
  *
  * Deux informations secrètes sont à enregistrer dans
  * « Paramètres du projet » > « Propriétés du script » (jamais dans ce fichier) :
@@ -25,6 +29,7 @@ const DEPOT = {
   branche: 'main',
   fichier: 'catalogue.json',
 };
+const VERSION_SCRIPT = 2;     // 1 = mots-clés seulement ; 2 = mots-clés + thème
 const MAX_EXERCICES = 1500;   // nombre maximum d'exercices par envoi
 const MAX_ECHECS = 10;        // mots de passe faux tolérés pendant 10 minutes
 
@@ -128,6 +133,9 @@ function verifierCorrections(brutes) {
     propres[id] = {
       mots_cles: Array.from(new Set(c.mots_cles)),
       mots_cles_verifies: c.mots_cles_verifies,
+      // Thème : facultatif (undefined = on n'y touche pas).
+      theme: c.theme === undefined || c.theme === null ? undefined : nettoyerTheme(c.theme, id),
+      depart_theme: typeof c.original_theme === 'string' ? c.original_theme : null,
       // Les mots-clés que la page avait au départ : sert à repérer un écrasement.
       depart: Array.isArray(c.original_mots_cles)
         ? c.original_mots_cles.filter(function (m) { return typeof m === 'string'; }).slice(0, 200)
@@ -135,6 +143,17 @@ function verifierCorrections(brutes) {
     };
   }
   return propres;
+}
+
+
+// Un thème doit être un texte court, sans retour à la ligne ni caractère de contrôle.
+function nettoyerTheme(valeur, id) {
+  if (typeof valeur !== 'string') throw new Error('Thème invalide pour ' + id);
+  const theme = valeur.replace(/\s+/g, ' ').trim();
+  if (!theme || theme.length > 100 || /[\u0000-\u001f\u007f]/.test(theme)) {
+    throw new Error('Thème invalide pour ' + id + ' (1 à 100 caractères).');
+  }
+  return theme;
 }
 
 
@@ -161,18 +180,24 @@ function appliquer(corrections, essai) {
     c.mots_cles.forEach(function (m) {
       if (!motsExistants.has(m)) throw new Error('Mot-clé inconnu dans la base : ' + m);
     });
+    const themeChange = c.theme !== undefined && c.theme !== exercice.theme;
     const dejaAJour = memeListe(c.mots_cles, exercice.mots_cles)
-      && c.mots_cles_verifies === (exercice.mots_cles_verifies === true);
+      && c.mots_cles_verifies === (exercice.mots_cles_verifies === true)
+      && !themeChange;
     if (dejaAJour) return;
-    if (c.depart && !memeListe(c.depart, exercice.mots_cles)) ecrases.push(id);
+    const motsChanges = c.depart && !memeListe(c.depart, exercice.mots_cles);
+    const themeChangeAilleurs = c.depart_theme !== null && c.depart_theme !== exercice.theme;
+    if (motsChanges || themeChangeAilleurs) ecrases.push(id);
     modifies.push({
       id: id,
       avant: exercice.mots_cles,
       apres: c.mots_cles,
       verifie_avant: exercice.mots_cles_verifies === true,
       verifie_apres: c.mots_cles_verifies,
+      theme_avant: exercice.theme,
+      theme_apres: themeChange ? c.theme : exercice.theme,
     });
-    if (!essai) texte = modifierTexte(texte, id, c.mots_cles, c.mots_cles_verifies);
+    if (!essai) texte = modifierTexte(texte, id, c.mots_cles, c.mots_cles_verifies, themeChange ? c.theme : undefined);
   });
 
   const ids = modifies.map(function (m) { return m.id; });
@@ -183,8 +208,14 @@ function appliquer(corrections, essai) {
     return { modifies: modifies.length, ids: ids, ecrases: ecrases, details: modifies.slice(0, 20) };
   }
 
-  const message = 'Corrections de mots-clés : ' + modifies.length + ' exercice' + (modifies.length > 1 ? 's' : '')
+  const themes = modifies.filter(function (m) { return m.theme_avant !== m.theme_apres; });
+  const message = 'Corrections : ' + modifies.length + ' exercice' + (modifies.length > 1 ? 's' : '')
     + '\n\nExercices : ' + ids.slice(0, 40).join(', ') + (ids.length > 40 ? ', …' : '')
+    + (themes.length
+      ? '\n\nThèmes modifiés :\n' + themes.slice(0, 20).map(function (m) {
+          return '- ' + m.id + ' : ' + m.theme_avant + ' → ' + m.theme_apres;
+        }).join('\n') + (themes.length > 20 ? '\n- …' : '')
+      : '')
     + '\n\nEnregistré depuis la page « Gérer la base ».';
   verifierResultat(texte, base.exercices, corrections);
   const commit = ecrireCatalogue(base, texte, message);
@@ -201,21 +232,23 @@ function memeListe(a, b) {
   return JSON.stringify(a.slice().sort()) === JSON.stringify(b.slice().sort());
 }
 
-// Remplace, dans le texte du fichier, les mots-clés et le statut « vérifié » d'UN exercice.
-// On ne réécrit pas tout le fichier : le reste (coordonnées, énoncés, etc.) n'est pas touché.
-function modifierTexte(texte, id, motsCles, verifie) {
+// Remplace, dans le texte du fichier, les mots-clés, le statut « vérifié » et (si demandé)
+// le thème d'UN exercice. On ne réécrit pas tout le fichier : le reste n'est pas touché.
+function modifierTexte(texte, id, motsCles, verifie, theme) {
   const marque = '{"id": ' + JSON.stringify(id) + ',';
   const debut = texte.indexOf(marque);
   if (debut < 0) throw new Error('Exercice introuvable dans le fichier : ' + id);
   const suivant = texte.indexOf('{"id": ', debut + 1);     // début de l'exercice d'après
   const limite = suivant < 0 ? texte.length : suivant;
 
+  const cleTheme = '"theme": ';
   const cleListe = '"mots_cles": [';
+  const t = texte.indexOf(cleTheme, debut);
   const a = texte.indexOf(cleListe, debut);
   const b = a < 0 ? -1 : texte.indexOf(']', a);
   const cleVerifie = '"mots_cles_verifies": ';
   const c = b < 0 ? -1 : texte.indexOf(cleVerifie, b);
-  if (a < 0 || b < 0 || c < 0 || b > limite || c > limite) {
+  if (t < 0 || a < 0 || b < 0 || c < 0 || t > a || b > limite || c > limite) {
     throw new Error('Structure inattendue pour ' + id + ' : enregistrement annulé.');
   }
   const debutValeur = c + cleVerifie.length;
@@ -223,9 +256,18 @@ function modifierTexte(texte, id, motsCles, verifie) {
   if (!ancienneValeur) throw new Error('Structure inattendue pour ' + id + ' : enregistrement annulé.');
 
   const nouvelleListe = '[' + motsCles.map(function (m) { return JSON.stringify(m); }).join(', ') + ']';
-  // On modifie d'abord la fin (le statut), puis la liste, pour ne pas décaler les positions.
+  // On modifie d'abord la fin (le statut), puis la liste, puis le thème (le plus tôt dans le texte),
+  // pour ne jamais décaler les positions encore à traiter.
   let resultat = texte.slice(0, debutValeur) + String(verifie) + texte.slice(debutValeur + ancienneValeur.length);
   resultat = resultat.slice(0, a + cleListe.length - 1) + nouvelleListe + resultat.slice(b + 1);
+  if (theme !== undefined) {
+    const debutTheme = t + cleTheme.length;
+    const finTheme = a - 2;                                  // le thème se termine avant « , »
+    if (resultat.slice(finTheme, a) !== ', ' || resultat.charAt(debutTheme) !== '"' || resultat.charAt(finTheme - 1) !== '"') {
+      throw new Error('Structure inattendue pour ' + id + ' : enregistrement annulé.');
+    }
+    resultat = resultat.slice(0, debutTheme) + JSON.stringify(theme) + resultat.slice(finTheme);
+  }
   return resultat;
 }
 
@@ -239,7 +281,8 @@ function verifierResultat(texte, anciens, corrections) {
     const c = corrections[e.id];
     const attendu = c ? c.mots_cles : anciens[i].mots_cles;
     const verifie = c ? c.mots_cles_verifies : anciens[i].mots_cles_verifies === true;
-    if (!memeListe(e.mots_cles, attendu) || (e.mots_cles_verifies === true) !== verifie) {
+    const themeAttendu = c && c.theme !== undefined ? c.theme : anciens[i].theme;
+    if (!memeListe(e.mots_cles, attendu) || (e.mots_cles_verifies === true) !== verifie || e.theme !== themeAttendu) {
       throw new Error('Contrôle final : résultat inattendu pour ' + e.id + '. Enregistrement annulé.');
     }
   });
@@ -324,5 +367,6 @@ function expliquerErreur(code, methode) {
 }
 
 function repondre(objet) {
+  objet.schema = VERSION_SCRIPT;
   return ContentService.createTextOutput(JSON.stringify(objet)).setMimeType(ContentService.MimeType.JSON);
 }
