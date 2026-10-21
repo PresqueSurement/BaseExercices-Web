@@ -31,19 +31,23 @@ export const HEADERS = [
 export function cleanOptions(raw = {}) {
   const kind = raw.kind === 'fiche' ? 'fiche' : 'devoir';
   const header = HEADERS.some(h => h.key === raw.header) ? raw.header : 'DS';
-  const ficheTitle = String(raw.ficheTitle || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  // Fiche : le complément du bandeau « Fiche … » (ex. « (arithmétique) ») et le titre écrit dans le cadre (plusieurs lignes possibles).
+  const ficheLabel = String(raw.ficheLabel || '').replace(/\s+/g, ' ').trim().slice(0, 80);
+  const ficheTitle = String(raw.ficheTitle || '').replace(/[ \t]+/g, ' ').split(/\r?\n/).map(l => l.trim()).filter(Boolean).join('\n').slice(0, 300);
   const answerSpace = Math.min(120, Math.max(0, Number(raw.answerSpace) || 0));
-  return {kind, header, ficheTitle, columns: kind === 'devoir' && raw.columns === 2 ? 2 : 1,   // une fiche reste sur une colonne (cadre tcolorbox sécable)
-    nameLine: raw.nameLine !== false, answerSpace,
+  return {kind, header, ficheLabel, ficheTitle, columns: raw.columns === 2 ? 2 : 1, nameLine: raw.nameLine !== false, answerSpace,
     title: documentTitle({kind, header, ficheTitle})};
 }
 export function documentTitle(options) {
-  if (options.kind === 'fiche') return options.ficheTitle ? 'Fiche ' + options.ficheTitle : 'Fiche d’exercices';
+  if (options.kind === 'fiche') return options.ficheTitle ? options.ficheTitle.replace(/\n/g, ' ') : 'Fiche d’exercices';
   return (HEADERS.find(h => h.key === options.header) || HEADERS[0]).title;
 }
-// Nom de fichier (sans extension) : DS, DSA, TestB… ou Fiche-3.
+// Nom de fichier (sans extension) : DS, DSA, TestB… ou Fiche-Theoremes-d-Euler.
 export function documentFileName(options) {
-  if (options.kind === 'fiche') return 'Fiche' + (options.ficheTitle ? '-' + options.ficheTitle : '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/-$/, '').slice(0, 60);
+  if (options.kind === 'fiche') {
+    const words = String(options.ficheTitle || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 50).replace(/-$/, '');
+    return words ? 'Fiche-' + words : 'Fiche';
+  }
   return (HEADERS.find(h => h.key === options.header) || HEADERS[0]).key;
 }
 export function safeSelection(data, available) {
@@ -64,11 +68,11 @@ export function latexDocument(exercises, rawOptions) {
   }).join('\n\n');
   const fiche = options.kind === 'fiche';
   const body = (options.columns === 2 ? '\\begin{DeuxCols}\n' + content + '\n\\end{DeuxCols}' : content);
+  // Fiche : le cadre « mafiche » ne contient que le titre ; les exercices viennent ensuite, hors du cadre.
+  const ficheBox = `\\begin{mafiche}[{${options.ficheLabel}}]\n\\begin{center}\n{\\Large\\sc\\bfseries ${options.ficheTitle.split('\n').join(' \\\\ ')}}\n\\end{center}\n\\end{mafiche}\n`;
   return '\\documentclass[dvipsnames,12pt,a4paper]{article}\n\\usepackage{monpreambule}\n' +
-    (fiche ? '\\tcbset{breakable}\n' : '') +   // la fiche (cadre tcolorbox) peut alors continuer sur la page suivante
     '\\begin{document}\n' +
-    (fiche ? '' : `\\${options.header}\n`) +
+    (fiche ? ficheBox : `\\${options.header}\n`) +
     (options.nameLine ? '\\nom\n' : '') +
-    (fiche ? `\\begin{mafiche}[{${latexEscape(options.ficheTitle)}}]\n${body}\n\\end{mafiche}` : body) +
-    '\n\\end{document}\n';
+    body + '\n\\end{document}\n';
 }
