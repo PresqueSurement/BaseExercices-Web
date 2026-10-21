@@ -1,3 +1,4 @@
+import {documentFileName} from './core.mjs';
 export function validateServiceUrl(value) {
   const url=new URL(value);
   const local=url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname);
@@ -30,7 +31,7 @@ export function attachAnonymousCompiler(getRequest,baseUrl) {
     const file=Object.entries(archive).find(([name])=>/^(?:.*\/)?devoir\.pdf$/.test(name));
     if(!file)throw new Error('Le fichier PDF est absent du résultat.');
     const url=URL.createObjectURL(new Blob([file[1]],{type:'application/pdf'}));
-    const a=document.createElement('a');a.href=url;a.download=(request.options.title||'Devoir').replace(/[^\p{L}\p{N}_-]+/gu,'-').slice(0,100)+'.pdf';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+    const a=document.createElement('a');a.href=url;a.download=documentFileName(request.options)+'.pdf';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
     status('Votre PDF compilé est prêt. Le téléchargement a été lancé.');
   }
   async function start(){

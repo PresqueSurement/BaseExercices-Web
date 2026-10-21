@@ -40,3 +40,8 @@ button.danger{margin-left:auto;background:#fff;color:#8a2b2b;border:2px solid #8
 .manage-summary{list-style:none;margin:4px 0 8px;padding:0}.manage-summary li{font-size:13px;margin:3px 0;color:var(--ink)}.manage-summary .icon{display:inline-block;width:1.6em}.manage-summary li.is-danger{color:#8a2b2b}
 .manage-summary-details summary{cursor:pointer;font-size:13px;color:var(--green);font-weight:600;margin:6px 0}.manage-summary-list{list-style:none;margin:6px 0 0;padding:0;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px}
 .manage-summary-list li{border-bottom:1px solid var(--line)}.manage-summary-list li:last-child{border-bottom:0}.manage-summary-list button{all:unset;display:block;box-sizing:border-box;width:100%;padding:7px 11px;font-size:12.5px;cursor:pointer;color:var(--ink)}.manage-summary-list button:hover,.manage-summary-list button:focus-visible{background:var(--green-light)}.manage-summary-list b{margin-right:8px}.manage-summary-list .is-danger{color:#8a2b2b}
+
+.kind-choice{border:0;margin:0 0 6px;padding:0}.kind-choice legend{font-size:13px;font-weight:600;padding:0;margin-bottom:6px}.kind-choice .check{display:inline-flex;margin-right:18px}
+input[type=radio]{accent-color:var(--green);width:16px;height:16px;flex-shrink:0;padding:0;margin:0}
+.kind-choice{display:flex;gap:22px;align-items:center;flex-wrap:wrap}.kind-choice legend{width:100%;float:left}.kind-choice .check{margin:6px 0 0;white-space:nowrap}
+.kind-choice legend{margin-bottom:0;height:auto}.kind-choice{row-gap:0}

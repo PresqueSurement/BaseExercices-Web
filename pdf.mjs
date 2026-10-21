@@ -30,8 +30,6 @@ export async function createSubjectPdf(exercises, options, loadBytes, progress =
       for (const line of wrap(options.title || 'Devoir de mathématiques', serif, 19, W - 2*M)) {
         page.drawText(line, {x: M, y: y - 19, font: serif, size:19, color:ink}); y -= 25;
       }
-      const sub = [options.className, options.duration].filter(Boolean).join('  ·  ');
-      for (const line of wrap(sub, normal, 10, W - 2*M)) {page.drawText(line, {x:M,y:y-13,font:normal,size:10,color:ink}); y-=16;}
       if (options.nameLine) {page.drawText('Nom : ..................................     Prénom : ..................................', {x:M,y:y-19,font:normal,size:10,color:ink});y-=30;}
       y-=10; page.drawLine({start:{x:M,y},end:{x:W-M,y},thickness:.6,color:rgb(.7,.73,.7)});y-=20;
     } else {
@@ -51,7 +49,6 @@ export async function createSubjectPdf(exercises, options, loadBytes, progress =
   for (let index = 0; index < exercises.length; index++) {
     const exercise = exercises[index];progress(index,exercises.length);
     const src = await PDFDocument.load(await loadBytes(exercise.pdf));
-    if (options.pagePerExercise && index > 0) newPage();
     for (let p=0;p<src.getPageCount();p++) {
       let [left,low,right,high] = exercise.bounds[p];
       if (!(right > left && high > low)) throw new Error(`Limites du PDF invalides : ${exercise.id}`);

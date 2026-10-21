@@ -1,4 +1,4 @@
-import {latexDocument} from './core.mjs';
+import {latexDocument, documentFileName} from './core.mjs';
 
 export const YTOTECH_ENDPOINT = 'https://latex.ytotech.com/builds/sync';
 export const PACKAGE_NAMES = ['monpreambule.sty', 'perso-thierry.sty', 'slashbox.sty'];
@@ -71,7 +71,7 @@ export function attachYtoTechCompiler(getRequest, getExercises) {
       pdfUrl = URL.createObjectURL(new Blob([bytes], {type: 'application/pdf'}));
       const result = $('ytotech-result');
       result.href = pdfUrl;
-      result.download = (request.options.title || 'Devoir').replace(/[^\p{L}\p{N}_-]+/gu, '-').slice(0, 100) + '.pdf';
+      result.download = documentFileName(request.options) + '.pdf';
       result.hidden = false;
       status('Compilation réussie ! Téléchargez votre PDF ci-dessous.');
     } catch (error) {

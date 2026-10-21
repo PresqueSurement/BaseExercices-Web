@@ -1,4 +1,4 @@
-import {levels, filterExercises, safeSelection, latexDocument} from './core.mjs';
+import {levels, filterExercises, safeSelection, latexDocument, cleanOptions, documentFileName, HEADERS} from './core.mjs';
 import {createSubjectPdf} from './pdf.mjs';
 import {attachCompiler} from './compiler.mjs';
 import {PACKAGE_NAMES} from './ytotech-compiler.mjs';
@@ -10,7 +10,7 @@ let exercises = [], byId = new Map(), filtered = [], selected = [], options = {}
 let annotations = {}, bytesCache = new Map(), busy=false;
 let filters = {query:'', level:'', theme:'', keywords:[], keywordMode:'all', favorite:false};
 let keywordPicker, management;
-const defaults = {title:'Devoir de mathématiques',className:'',duration:'',columns:1,nameLine:true,answerSpace:0,pagePerExercise:false};
+const defaults = cleanOptions();
 function el(tag, cls, text) {const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;}
 function button(text, cls, action) {const b=el('button',cls,text);b.type='button';b.addEventListener('click',action);return b;}
 let toastTimer;
@@ -20,7 +20,7 @@ function writeStorage(key,value) {try{localStorage.setItem(key,JSON.stringify(va
 function persist() {writeStorage(STORAGE,{version:1,ids:selected,options});}
 function applyAnnotations() {for(const e of exercises){const note=annotations[e.id];if(note){e.favori=note.favorite??e.originalFavorite;e.commentaire=note.note??e.originalNote;}else{e.favori=e.originalFavorite;e.commentaire=e.originalNote;}}}
 function saveAnnotation(e, changes) {annotations[e.id]={...(annotations[e.id]||{}),...changes};applyAnnotations();writeStorage(NOTES,annotations);renderResults();}
-function slug() {return (options.title||'devoir').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9-]+/gi,'-').replace(/^-|-$/g,'').slice(0,80)||'devoir';}
+function slug() {return documentFileName(options);}
 function download(data, type, name) {const url=URL.createObjectURL(new Blob([data],{type}));const a=el('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);}
 function jsonDownload(data,name){download(JSON.stringify(data,null,2),'application/json',name);}
 async function fetchBytes(path) {
@@ -29,8 +29,9 @@ async function fetchBytes(path) {
 }
 function toggleSelection(id) {if(busy)return;if(selected.includes(id))selected=selected.filter(x=>x!==id);else selected.push(id);persist();renderSelection();renderResults();if(preview?.id===id)previewButton();}
 function previewButton() {$('preview-add').textContent=selected.includes(preview.id)?'Retirer du devoir':'Ajouter au devoir';}
-function optionsToForm(){for(const [id,key] of [['title','title'],['class-name','className'],['duration','duration'],['columns','columns'],['answer-space','answerSpace']])$(id).value=options[key];$('name-line').checked=options.nameLine;$('page-per-exercise').checked=options.pagePerExercise;}
-function readOptions(){options={title:$('title').value.trim()||defaults.title,className:$('class-name').value.trim(),duration:$('duration').value.trim(),columns:Number($('columns').value),answerSpace:Number($('answer-space').value),nameLine:$('name-line').checked,pagePerExercise:$('page-per-exercise').checked};persist();}
+function syncKind(){const fiche=options.kind==='fiche';$('header-box').hidden=fiche;$('fiche-box').hidden=!fiche;$('columns').disabled=fiche;if(fiche)$('columns').value='1';}
+function optionsToForm(){options=cleanOptions(options);$('header').replaceChildren(...HEADERS.map(h=>new Option(h.menu,h.key)));$('header').value=options.header;$('fiche-title').value=options.ficheTitle;for(const r of document.querySelectorAll('input[name="doc-kind"]'))r.checked=r.value===options.kind;$('columns').value=options.columns;$('answer-space').value=options.answerSpace;$('name-line').checked=options.nameLine;syncKind();}
+function readOptions(){options=cleanOptions({kind:document.querySelector('input[name="doc-kind"]:checked')?.value,header:$('header').value,ficheTitle:$('fiche-title').value,columns:Number($('columns').value),answerSpace:Number($('answer-space').value),nameLine:$('name-line').checked});syncKind();persist();}
 function showView(view){
   const name=typeof view==='boolean'?(view?'subject':'library'):view;
   for(const item of ['library','subject','management']){
@@ -105,8 +106,8 @@ async function createZip(){
     if(!globalThis.fflate)throw new Error('Le module ZIP n’a pas chargé. Rechargez la page.');
     const {strToU8,zipSync}=globalThis.fflate;
     const missing=list.filter(e=>e.missingImages.length).map(e=>`${e.id} : ${e.missingImages.join(', ')}`);
-    const files={'devoir.tex':strToU8(latexDocument(list,opts)),'selection.json':strToU8(JSON.stringify({version:1,ids:list.map(e=>e.id),options:opts},null,2)),
-      'LISEZ-MOI.txt':strToU8('Sources du devoir\n\nLe fichier devoir.tex reprend les exercices sélectionnés. Les packages personnels sont inclus, ainsi que les images nécessaires. Une distribution LaTeX complète et récente est requise.\n\nPour compiler : lualatex devoir.tex\n\nImages absentes des sources :\n'+(missing.join('\n')||'Aucune image manquante détectée.'))};
+    const files={[slug()+'.tex']:strToU8(latexDocument(list,opts)),'selection.json':strToU8(JSON.stringify({version:1,ids:list.map(e=>e.id),options:opts},null,2)),
+      'LISEZ-MOI.txt':strToU8('Sources du devoir\n\nLe fichier '+slug()+'.tex reprend les exercices sélectionnés. Les packages personnels sont inclus, ainsi que les images nécessaires. Une distribution LaTeX complète et récente est requise.\n\nPour compiler : lualatex '+slug()+'.tex\n\nImages absentes des sources :\n'+(missing.join('\n')||'Aucune image manquante détectée.'))};
     for(const name of PACKAGE_NAMES)files[name]=await fetchBytes('latex/'+name);
     for(const e of list){files['exercices/'+e.id+'.tex']=strToU8(e.tex);for(const asset of Object.values(e.images)){const name='images/'+asset.split('/').pop();if(!files[name])files[name]=await fetchBytes(asset);}}
     download(zipSync(files),'application/zip',slug()+'-sources.zip');$('export-status').textContent='Sources téléchargées.'+(missing.length?' Attention : certaines images LaTeX sont absentes ; voir LISEZ-MOI.txt.':'');
@@ -125,7 +126,7 @@ function wireEvents(){
   $('close-dialog').onclick=()=>$('exercise-dialog').close();$('exercise-dialog').addEventListener('click',e=>{if(e.target===$('exercise-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
   $('preview-add').onclick=()=>toggleSelection(preview.id);$('preview-favorite').onclick=()=>{saveAnnotation(preview,{favorite:!preview.favori});$('preview-favorite').textContent=preview.favori?'★ Favori':'☆ Favori';};
   $('exercise-note').oninput=()=>saveAnnotation(preview,{note:$('exercise-note').value});$('download-tex').onclick=()=>download(preview.tex,'text/plain;charset=utf-8',preview.id+'.tex');$('show-pdf').onclick=()=>setPreviewMode(false);$('show-tex').onclick=()=>setPreviewMode(true);
-  for(const id of ['title','class-name','duration','columns','answer-space','name-line','page-per-exercise'])$(id).addEventListener('change',readOptions);
+  for(const id of ['header','fiche-title','columns','answer-space','name-line'])$(id).addEventListener('change',readOptions);$('fiche-title').addEventListener('input',readOptions);for(const r of document.querySelectorAll('input[name="doc-kind"]'))r.addEventListener('change',readOptions);
   $('clear-selection').onclick=()=>{if(confirm('Vider la sélection du devoir ? Les exercices de la base seront conservés.')){selected=[];persist();renderSelection();renderResults();}};
   $('save-selection').onclick=()=>{readOptions();jsonDownload({version:1,ids:selected,options},slug()+'-selection.json');};
   $('load-selection').onchange=async e=>{try{const data=safeSelection(await readJsonFile(e.target.files[0]),byId);if(selected.length&&!confirm('Remplacer la sélection actuelle par celle du fichier ?'))return;selected=data.ids;options=data.options;optionsToForm();persist();renderSelection();renderResults();toast('Sélection importée.');}catch(error){toast(error.message);}finally{e.target.value='';}};
