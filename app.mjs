@@ -136,9 +136,9 @@ function wireEvents(){
 }
 async function main(){
   try{const response=await fetch('catalogue.json',{cache:'no-cache'});if(!response.ok)throw new Error('Le catalogue est indisponible.');exercises=await response.json();for(const e of exercises){e.originalFavorite=e.favori;e.originalNote=e.commentaire;}byId=new Map(exercises.map(e=>[e.id,e]));annotations=readStorage(NOTES,{});if(!annotations||typeof annotations!=='object'||Array.isArray(annotations))annotations={};applyAnnotations();
-    options={...defaults};const stored=readStorage(STORAGE,null);if(stored){try{const restored=safeSelection(stored,byId);selected=restored.ids;options=restored.options;}catch{toast('L’ancienne sélection ne correspond plus à la base. Vous pouvez en créer une nouvelle.');}}
+    options={...defaults};const stored=readStorage(STORAGE,null);if(stored){try{if(Array.isArray(stored.ids))stored.ids=stored.ids.filter(id=>byId.has(id));const restored=safeSelection(stored,byId);selected=restored.ids;options=restored.options;}catch{toast('L’ancienne sélection ne correspond plus à la base. Vous pouvez en créer une nouvelle.');}}
     $('total-count').textContent=exercises.length.toLocaleString('fr-FR');optionsToForm();wireEvents();
-    management=attachManagement(exercises,()=>{updateFilterChoices();renderResults();},toast);
+    management=attachManagement(exercises,()=>{const gone=selected.filter(id=>byId.get(id)?.supprime);if(gone.length){selected=selected.filter(id=>!gone.includes(id));persist();renderSelection();toast(gone.length>1?'Des exercices à supprimer ont été retirés de la sélection.':'Un exercice à supprimer a été retiré de la sélection.');}updateFilterChoices();renderResults();},toast);
     updateFilterChoices();renderResults();renderSelection();
   }catch(error){$('result-count').textContent='La bibliothèque n’a pas pu charger.';const message=el('div','empty');message.append(el('p',null,error.message+' Rechargez la page.'));$('results').replaceChildren(message);}
 }

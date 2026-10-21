@@ -10,6 +10,8 @@
  *   - la liste de ses mots-clés (existants, ou nouveaux : minuscules, chiffres et « _ », 60 caractères au plus),
  *   - son statut « mots-clés vérifiés »,
  *   - son thème (un thème existant, ou un nouveau thème de 100 caractères au plus).
+ * Il peut aussi SUPPRIMER des exercices entiers (version 4) : l'exercice disparaît du catalogue,
+ * ainsi que son PDF et ses images d'aperçu (une image encore utilisée par un autre exercice est conservée).
  * Tout le reste du catalogue (niveau, énoncé, PDF…) reste intact.
  *
  * Le numéro de version ci-dessous est renvoyé à la page, qui s'en sert pour
@@ -29,8 +31,9 @@ const DEPOT = {
   branche: 'main',
   fichier: 'catalogue.json',
 };
-const VERSION_SCRIPT = 3;     // 1 = mots-clés existants ; 2 = + thème ; 3 = + création de nouveaux mots-clés
+const VERSION_SCRIPT = 4;     // 1 = mots-clés existants ; 2 = + thème ; 3 = + nouveaux mots-clés ; 4 = + suppression d'exercices
 const MAX_NOUVEAUX_MOTS_CLES = 20;   // nouveaux mots-clés créés au plus par envoi
+const MAX_SUPPRESSIONS = 20;     // exercices supprimés au plus par envoi
 const MAX_EXERCICES = 1500;   // nombre maximum d'exercices par envoi
 const MAX_ECHECS = 10;        // mots de passe faux tolérés pendant 10 minutes
 
@@ -125,6 +128,7 @@ function verifierCorrections(brutes) {
   for (const id of ids) {
     const c = brutes[id];
     if (!/^[A-Z]\d{4}$/.test(id)) throw new Error('Identifiant d’exercice invalide : ' + id);
+    if (c && c.supprime === true) { propres[id] = { supprime: true }; continue; }   // exercice à supprimer : rien d'autre à contrôler
     if (!c || !Array.isArray(c.mots_cles) || c.mots_cles.length > 200 || typeof c.mots_cles_verifies !== 'boolean') {
       throw new Error('Correction invalide pour ' + id);
     }
@@ -177,13 +181,19 @@ function appliquer(corrections, essai) {
   });
 
   let texte = base.texte;  // le fichier tel qu'il est sur GitHub, modifié petit à petit
+  const aSupprimer = Object.keys(corrections).filter(function (id) { return corrections[id].supprime === true && parId[id]; });
+  if (aSupprimer.length > MAX_SUPPRESSIONS) {
+    throw new Error('Trop de suppressions dans un seul envoi (' + aSupprimer.length + ', maximum ' + MAX_SUPPRESSIONS + ').');
+  }
+  if (aSupprimer.length >= base.exercices.length) throw new Error('Impossible de supprimer tous les exercices.');
   const nouveauxMotsCles = new Set();   // mots-clés qui n'existent pas encore dans la base
   const modifies = [];   // exercices réellement changés
   const ecrases = [];    // exercices dont le catalogue avait changé depuis le départ de la page
   Object.keys(corrections).forEach(function (id) {
+    const c = corrections[id];
+    if (c.supprime === true) return;        // traité plus bas
     const exercice = parId[id];
     if (!exercice) throw new Error('Exercice absent de la base : ' + id);
-    const c = corrections[id];
     const themeChange = c.theme !== undefined && c.theme !== exercice.theme;
     const dejaAJour = memeListe(c.mots_cles, exercice.mots_cles)
       && c.mots_cles_verifies === (exercice.mots_cles_verifies === true)
@@ -210,16 +220,23 @@ function appliquer(corrections, essai) {
   if (nouveaux.length > MAX_NOUVEAUX_MOTS_CLES) {
     throw new Error('Trop de nouveaux mots-clés dans un seul envoi (' + nouveaux.length + ', maximum ' + MAX_NOUVEAUX_MOTS_CLES + ').');
   }
-  if (!modifies.length) {
-    return { modifies: 0, ids: [], ecrases: [], nouveaux_mots_cles: [], message: 'Rien à enregistrer : la base est déjà à jour.' };
+  // Suppressions : on retire l'exercice du fichier, et on prépare la liste des fichiers à effacer.
+  const fichiers = aSupprimer.length ? fichiersASupprimer(base, aSupprimer) : [];
+  if (!essai) aSupprimer.forEach(function (id) { texte = retirerExercice(texte, id); });
+  if (!modifies.length && !aSupprimer.length) {
+    return { modifies: 0, ids: [], supprimes: [], fichiers_supprimes: 0, ecrases: [], nouveaux_mots_cles: [], message: 'Rien à enregistrer : la base est déjà à jour.' };
   }
   if (essai) {
-    return { modifies: modifies.length, ids: ids, ecrases: ecrases, nouveaux_mots_cles: nouveaux, details: modifies.slice(0, 20) };
+    return { modifies: modifies.length, ids: ids, supprimes: aSupprimer, fichiers_supprimes: fichiers.length, ecrases: ecrases, nouveaux_mots_cles: nouveaux, details: modifies.slice(0, 20) };
   }
 
   const themes = modifies.filter(function (m) { return m.theme_avant !== m.theme_apres; });
-  const message = 'Corrections : ' + modifies.length + ' exercice' + (modifies.length > 1 ? 's' : '')
-    + '\n\nExercices : ' + ids.slice(0, 40).join(', ') + (ids.length > 40 ? ', …' : '')
+  const titre = [];
+  if (modifies.length) titre.push('Corrections : ' + modifies.length + ' exercice' + (modifies.length > 1 ? 's' : ''));
+  if (aSupprimer.length) titre.push('Suppression : ' + aSupprimer.length + ' exercice' + (aSupprimer.length > 1 ? 's' : ''));
+  const message = titre.join(' ; ')
+    + (modifies.length ? '\n\nExercices : ' + ids.slice(0, 40).join(', ') + (ids.length > 40 ? ', …' : '') : '')
+    + (aSupprimer.length ? '\n\nExercices supprimés : ' + aSupprimer.join(', ') + ' (' + fichiers.length + ' fichier' + (fichiers.length > 1 ? 's' : '') + ' effacé' + (fichiers.length > 1 ? 's' : '') + ')' : '')
     + (nouveaux.length ? '\n\nNouveaux mots-clés : ' + nouveaux.join(', ') : '')
     + (themes.length
       ? '\n\nThèmes modifiés :\n' + themes.slice(0, 20).map(function (m) {
@@ -227,16 +244,58 @@ function appliquer(corrections, essai) {
         }).join('\n') + (themes.length > 20 ? '\n- …' : '')
       : '')
     + '\n\nEnregistré depuis la page « Gérer la base ».';
-  verifierResultat(texte, base.exercices, corrections);
-  const commit = ecrireCatalogue(base, texte, message);
+  verifierResultat(texte, base.exercices, corrections, aSupprimer);
+  const commit = ecrireCatalogue(base, texte, message, fichiers);
   return {
     modifies: modifies.length,
     ids: ids,
+    supprimes: aSupprimer,
+    fichiers_supprimes: fichiers.length,
     ecrases: ecrases,
     nouveaux_mots_cles: nouveaux,
     commit: commit.sha.slice(0, 7),
     commit_url: commit.html_url,
   };
+}
+
+// Retire UN exercice du texte du fichier (les autres ne sont pas touchés).
+// Les exercices sont séparés par « , » : on enlève l'exercice et la virgule qui l'accompagne.
+function retirerExercice(texte, id) {
+  const marque = '{"id": ' + JSON.stringify(id) + ',';
+  const debut = texte.indexOf(marque);
+  if (debut < 0) throw new Error('Exercice introuvable dans le fichier : ' + id);
+  const suivant = texte.indexOf('{"id": ', debut + 1);
+  if (suivant >= 0) {
+    if (texte.slice(suivant - 2, suivant) !== ', ') throw new Error('Structure inattendue pour ' + id + ' : enregistrement annulé.');
+    return texte.slice(0, debut) + texte.slice(suivant);
+  }
+  // dernier exercice du fichier : on enlève aussi la virgule qui le précède
+  if (texte.slice(debut - 2, debut) !== ', ' || texte.slice(-1) !== ']') throw new Error('Structure inattendue pour ' + id + ' : enregistrement annulé.');
+  return texte.slice(0, debut - 2) + ']';
+}
+
+// Fichiers à effacer avec les exercices supprimés : leur PDF, leurs aperçus et leurs images,
+// sauf une image encore utilisée par un exercice qui reste. Seuls les fichiers du dossier assets/ qui existent sont retenus.
+function fichiersASupprimer(base, ids) {
+  listerAssets(base);
+  const supprimes = {};
+  ids.forEach(function (id) { supprimes[id] = true; });
+  const fichiersDe = function (e) {
+    const liste = [];
+    if (typeof e.pdf === 'string') liste.push(e.pdf);
+    (e.previews || []).forEach(function (v) { if (v && typeof v.src === 'string') liste.push(v.src); });
+    Object.keys(e.images || {}).forEach(function (k) { if (typeof e.images[k] === 'string') liste.push(e.images[k]); });
+    return liste;
+  };
+  const gardes = {};
+  base.exercices.forEach(function (e) { if (!supprimes[e.id]) fichiersDe(e).forEach(function (f) { gardes[f] = true; }); });
+  const aEffacer = {};
+  base.exercices.forEach(function (e) {
+    if (supprimes[e.id]) fichiersDe(e).forEach(function (f) { if (!gardes[f]) aEffacer[f] = true; });
+  });
+  return Object.keys(aEffacer).filter(function (f) {
+    return /^assets\/[A-Za-z0-9._-]+$/.test(f) && base.fichiersAssets[f];
+  }).sort();
 }
 
 function memeListe(a, b) {
@@ -284,8 +343,11 @@ function modifierTexte(texte, id, motsCles, verifie, theme) {
 
 // Dernière vérification avant d'écrire : le fichier doit rester du JSON valide,
 // avec le même nombre d'exercices, et les corrections doivent y figurer.
-function verifierResultat(texte, anciens, corrections) {
+function verifierResultat(texte, anciens, corrections, supprimes) {
   const nouveaux = JSON.parse(texte);
+  const retires = {};
+  (supprimes || []).forEach(function (id) { retires[id] = true; });
+  anciens = anciens.filter(function (e) { return !retires[e.id]; });
   if (nouveaux.length !== anciens.length) throw new Error('Contrôle final : le nombre d’exercices a changé. Enregistrement annulé.');
   nouveaux.forEach(function (e, i) {
     if (e.id !== anciens[i].id) throw new Error('Contrôle final : l’ordre des exercices a changé. Enregistrement annulé.');
@@ -319,18 +381,31 @@ function lireCatalogue() {
   return {
     commitSha: commitSha,
     arbreSha: commit.tree.sha,
+    arbre: arbre.tree,
     texte: texte,
     exercices: JSON.parse(texte),
+    fichiersAssets: {},    // rempli seulement si des fichiers sont à effacer (voir listerAssets)
   };
+}
+
+// Liste les fichiers qui existent vraiment dans le dossier assets/ (on n'efface que ce qui existe).
+function listerAssets(base) {
+  const dossier = base.arbre.filter(function (x) { return x.path === 'assets' && x.type === 'tree'; })[0];
+  if (!dossier) return;
+  const contenu = JSON.parse(github('get', '/git/trees/' + dossier.sha).getContentText());
+  if (contenu.truncated) throw new Error('Le dossier assets est trop gros pour être lu : suppression annulée.');
+  contenu.tree.forEach(function (x) { if (x.type === 'blob') base.fichiersAssets['assets/' + x.path] = true; });
 }
 
 // Crée le nouveau fichier, l'arbre, le commit, puis avance la branche.
 // Si quelqu'un a modifié la branche entre-temps, GitHub refuse : rien n'est écrasé.
-function ecrireCatalogue(base, contenu, message) {
+function ecrireCatalogue(base, contenu, message, aEffacer) {
   const blob = JSON.parse(github('post', '/git/blobs', { content: contenu, encoding: 'utf-8' }).getContentText());
   const arbre = JSON.parse(github('post', '/git/trees', {
     base_tree: base.arbreSha,
-    tree: [{ path: DEPOT.fichier, mode: '100644', type: 'blob', sha: blob.sha }],
+    tree: [{ path: DEPOT.fichier, mode: '100644', type: 'blob', sha: blob.sha }].concat(
+      (aEffacer || []).map(function (f) { return { path: f, mode: '100644', type: 'blob', sha: null }; })   // sha null = fichier effacé
+    ),
   }).getContentText());
   const commit = JSON.parse(github('post', '/git/commits', {
     message: message,

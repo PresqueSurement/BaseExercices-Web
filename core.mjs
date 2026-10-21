@@ -6,6 +6,7 @@ export function filterExercises(exercises, filters) {
   const words = normalize(filters.query).trim().split(/\s+/).filter(Boolean);
   const keywords = filters.keywords ?? (filters.keyword ? [filters.keyword] : []);
   return exercises.filter(e =>
+    !e.supprime &&
     (!filters.level || e.niveau === filters.level) &&
     (!filters.theme || e.theme === filters.theme) &&
     (!filters.favorite || e.favori) &&

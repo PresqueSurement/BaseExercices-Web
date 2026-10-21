@@ -17,16 +17,17 @@ export function validateCorrections(data, available) {
   if (!data || data.version !== 1 || data.type !== CORRECTIONS_TYPE || !data.corrections || Array.isArray(data.corrections) || typeof data.corrections !== 'object') throw new Error('Sauvegarde de corrections incompatible.');
   const result = Object.create(null);
   for (const [id, entry] of Object.entries(data.corrections)) {
-    if (!available.has(id)) throw new Error('Exercice absent de cette base : ' + id);
+    if (!available.has(id)) {if (entry?.supprime === true) continue; throw new Error('Exercice absent de cette base : ' + id);}   // suppression déjà publiée : on l'oublie
     if (!entry || !Array.isArray(entry.mots_cles) || entry.mots_cles.length > 200 || entry.mots_cles.some(key => !isKeyword(key)) || typeof entry.mots_cles_verifies !== 'boolean') throw new Error('Correction invalide pour ' + id);
     const original = entry.original_mots_cles;
     if (original !== undefined && (!Array.isArray(original) || original.length > 200 || original.some(key => typeof key !== 'string' || key.length > 100))) throw new Error('Historique invalide pour ' + id);
+    if (entry.supprime !== undefined && typeof entry.supprime !== 'boolean') throw new Error('Correction invalide pour ' + id);
     if (entry.theme !== undefined && !validTheme(entry.theme)) throw new Error('Thème invalide pour ' + id);
     if (entry.original_theme !== undefined && !validTheme(entry.original_theme)) throw new Error('Thème d’origine invalide pour ' + id);
     result[id] = {mots_cles: [...new Set(entry.mots_cles)], mots_cles_verifies: entry.mots_cles_verifies,
       theme: entry.theme ?? available.get(id).theme,
       original_mots_cles: [...(original || available.get(id).mots_cles)],
-      original_theme: entry.original_theme ?? available.get(id).theme};
+      original_theme: entry.original_theme ?? available.get(id).theme, ...(entry.supprime === true ? {supprime: true} : {})};
   }
   return result;
 }
@@ -54,7 +55,7 @@ export function attachManagement(exercises, onChange, toast) {
   const beforePruning = Object.keys(corrections).length;
   for (const id of Object.keys(corrections)) {
     const value = corrections[id], original = originals.get(id);
-    if (sameState(value, original)) delete corrections[id];
+    if (!value.supprime && sameState(value, original)) delete corrections[id];
   }
   if (Object.keys(corrections).length !== beforePruning) {
     try {localStorage.setItem(MANAGEMENT_STORAGE, JSON.stringify(correctionsFile(corrections)));} catch {}
@@ -71,14 +72,16 @@ export function attachManagement(exercises, onChange, toast) {
     $('manage-save-note').hidden = configured;
   }
   function describeResult(data) {
-    const total = data.modifies || 0;
+    const total = data.modifies || 0, gone = data.supprimes?.length || 0;
     const fresh = data.nouveaux_mots_cles || [];
     const created = fresh.length ? ` ${data.essai ? 'Il créerait' : 'Créé'} ${fresh.length} nouveau${fresh.length > 1 ? 'x' : ''} mot${fresh.length > 1 ? 's' : ''}-clé${fresh.length > 1 ? 's' : ''} : ${fresh.join(', ')}.` : '';
+    const removed = data.supprimes?.length ? ` ${data.essai ? 'Il supprimerait' : 'Supprimé'} ${count(data.supprimes.length)} (${names(data.supprimes)}) avec ${data.fichiers_supprimes || 0} fichier${data.fichiers_supprimes > 1 ? 's' : ''} (PDF, aperçus, images).` : '';
     const warning = data.ecrases?.length
       ? ` Attention : ${count(data.ecrases.length)} (${names(data.ecrases)}) avaient été modifiés ailleurs depuis ; vos corrections ${data.essai ? 'les remplaceraient' : 'les ont remplacés'}.` : '';
+    if (!total && gone) return (data.essai ? 'Connexion réussie.' : 'Enregistré.') + removed + (data.essai ? ' Rien n’a été écrit.' : ' Le site se met à jour dans 1 à 2 minutes ; rechargez ensuite la page.');
     if (!total) return data.essai ? 'Connexion réussie. Rien à enregistrer pour le moment.' : (data.message || 'Rien à enregistrer : la base est déjà à jour.');
-    if (data.essai) return `Connexion réussie. L’enregistrement modifierait ${count(total)} (${names(data.ids)}). Rien n’a été écrit.${created}${warning}`;
-    return `Enregistré : ${count(total)} (${names(data.ids)}), commit ${data.commit}. Le site se met à jour dans 1 à 2 minutes ; rechargez ensuite la page.${created}${warning}`;
+    if (data.essai) return `Connexion réussie. L’enregistrement modifierait ${count(total)} (${names(data.ids)}). Rien n’a été écrit.${created}${removed}${warning}`;
+    return `Enregistré : ${count(total)} (${names(data.ids)}), commit ${data.commit}. Le site se met à jour dans 1 à 2 minutes ; rechargez ensuite la page.${created}${removed}${warning}`;
   }
   function rememberPassword(password) {
     try {
@@ -90,8 +93,9 @@ export function attachManagement(exercises, onChange, toast) {
     if (saving || !saveUrl) return;
     const password = $('manage-password').value;
     if (!password) {status('Saisissez d’abord le mot de passe d’enregistrement.'); $('manage-password').focus(); return;}
-    const themeChanges = Object.values(corrections).filter(c => c.theme !== c.original_theme).length;
-    const newKeywords = [...new Set(Object.values(corrections).flatMap(c => c.mots_cles))].filter(key => !baseKeys.has(key));
+    const deletions = Object.values(corrections).filter(c => c.supprime).length;
+    const themeChanges = Object.values(corrections).filter(c => !c.supprime && c.theme !== c.original_theme).length;
+    const newKeywords = [...new Set(Object.values(corrections).filter(c => !c.supprime).flatMap(c => c.mots_cles))].filter(key => !baseKeys.has(key));
     saving = true; refreshSave();
     status(dryRun ? 'Test de la connexion avec la base…' : `Enregistrement de ${count(Object.keys(corrections).length)} dans la base…`);
     try {
@@ -107,10 +111,11 @@ export function attachManagement(exercises, onChange, toast) {
       const missing = [];
       if (themeChanges && (data.schema || 1) < 2) missing.push('les changements de thème');
       if (newKeywords.length && (data.schema || 1) < 3) missing.push('les nouveaux mots-clés');
+      if (deletions && (data.schema || 1) < 4) missing.push('les suppressions d’exercices');
       const outdated = missing.length
         ? ` ⚠ Le script Google n’est pas à jour : il ne peut pas enregistrer ${missing.join(' ni ')}. Republiez-le avec la dernière version (voir apps-script/LISEZ-MOI.md) ; vos changements restent gardés dans ce navigateur.` : '';
       status(describeResult(data) + outdated);
-      if (!dryRun && data.modifies) toast('Corrections enregistrées dans la base.');
+      if (!dryRun && (data.modifies || data.supprimes?.length)) toast('Corrections enregistrées dans la base.');
     } catch (error) {
       status(['TimeoutError', 'AbortError'].includes(error.name) ? 'Le service met trop de temps à répondre. Réessayez dans un instant.'
         : error instanceof TypeError ? 'Impossible de joindre le service d’enregistrement. Vérifiez votre connexion.' : 'Échec : ' + error.message);
@@ -120,7 +125,7 @@ export function attachManagement(exercises, onChange, toast) {
   function apply() {
     for (const e of exercises) {
       const value = corrections[e.id] || originals.get(e.id);
-      e.mots_cles = [...value.mots_cles]; e.mots_cles_verifies = value.mots_cles_verifies; e.theme = value.theme;
+      e.mots_cles = [...value.mots_cles]; e.mots_cles_verifies = value.mots_cles_verifies; e.theme = value.theme; e.supprime = !!value.supprime;
     }
   }
   function persist() {
@@ -132,7 +137,7 @@ export function attachManagement(exercises, onChange, toast) {
   // changes : une partie de {mots_cles, mots_cles_verifies, theme} ; le reste garde sa valeur actuelle.
   function update(changes) {
     const e = byId.get(currentId), original = originals.get(currentId);
-    if (!e) return;
+    if (!e || corrections[currentId]?.supprime) return;     // un exercice à supprimer n'est plus modifiable
     const next = {mots_cles: [...e.mots_cles], mots_cles_verifies: e.mots_cles_verifies === true, theme: e.theme, ...changes};
     next.mots_cles = [...next.mots_cles];
     if (sameState(next, original)) delete corrections[currentId];
@@ -181,7 +186,8 @@ export function attachManagement(exercises, onChange, toast) {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'manage-list-item' + (currentId === e.id ? ' active' : '');
       button.setAttribute('aria-pressed', String(currentId === e.id));
       const title = document.createElement('strong'); title.textContent = e.id + ' · ' + e.theme.replaceAll('_', ' ');
-      const info = document.createElement('span'); info.textContent = `${levels[e.niveau]} · ${e.mots_cles.length} mots-clés · ${e.mots_cles_verifies ? '✓ Vérifié' : 'À vérifier'}${corrections[e.id] ? ' · modifié ici' : ''}`;
+      const info = document.createElement('span'); info.textContent = `${levels[e.niveau]} · ${e.mots_cles.length} mots-clés · ${e.mots_cles_verifies ? '✓ Vérifié' : 'À vérifier'}${corrections[e.id]?.supprime ? ' · 🗑 sera supprimé' : corrections[e.id] ? ' · modifié ici' : ''}`;
+      if (corrections[e.id]?.supprime) button.classList.add('is-deleted');
       button.append(title, info); button.onclick = () => {currentId = e.id; $('manage-keyword-search').value = ''; renderList(); renderEditor();}; return button;
     }));
     if (!list.length) $('manage-list').textContent = 'Aucun exercice pour ces filtres.';
@@ -240,6 +246,10 @@ export function attachManagement(exercises, onChange, toast) {
     $('manage-verified').checked = !!e.mots_cles_verifies;
     $('manage-current-state').textContent = e.mots_cles_verifies ? '✓ Mots-clés vérifiés' : 'Mots-clés à vérifier';
     $('manage-reset').disabled = !corrections[e.id];
+    const doomed = !!corrections[e.id]?.supprime;
+    $('manage-delete-notice').hidden = !doomed; $('manage-delete').hidden = doomed;
+    for (const id of ['manage-exercise-theme', 'manage-verified', 'manage-keyword-search', 'manage-verify-next']) $(id).disabled = doomed;
+    $('manage-editor').classList.toggle('is-deleted', doomed);
     $('manage-open-pdf').href = e.pdf;
     // Garder l'aperçu et sa position lorsque l'on coche simplement un mot-clé.
     if ($('manage-pdf-pages').dataset.exercise !== e.id) {
@@ -273,6 +283,14 @@ export function attachManagement(exercises, onChange, toast) {
   $('manage-verify-next').onclick = () => nextExercise(true);
   $('manage-reset').onclick = () => {if (currentId && confirm('Rétablir les mots-clés, le thème et le statut de cet exercice tels qu’ils étaient dans la base publiée ?')) {delete corrections[currentId]; persist();}};
   $('manage-list-prev').onclick = () => {page--; renderList();}; $('manage-list-next').onclick = () => {page++; renderList();};
+  $('manage-delete').onclick = () => {
+    const e = byId.get(currentId); if (!e) return;
+    if (!confirm(`Supprimer l’exercice ${e.id} ?\n\nÀ l’enregistrement, il sera retiré de la base avec son code LaTeX, son PDF et ses aperçus. Tant que vous n’avez pas cliqué sur « Enregistrer dans la base », vous pouvez annuler.`)) return;
+    corrections[e.id] = {mots_cles: [...e.mots_cles], mots_cles_verifies: e.mots_cles_verifies === true, theme: e.theme,
+      original_mots_cles: [...originals.get(e.id).mots_cles], original_theme: originals.get(e.id).theme, supprime: true};
+    persist(); toast(`${e.id} sera supprimé à l’enregistrement.`);
+  };
+  $('manage-undelete').onclick = () => {if (currentId) {delete corrections[currentId]; persist();}};
   $('manage-save').onclick = () => sendToBase(false);
   $('manage-test').onclick = () => sendToBase(true);
   $('manage-remember').onchange = () => {if (!$('manage-remember').checked) try {localStorage.removeItem(PASSWORD_STORAGE);} catch {}};
