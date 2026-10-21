@@ -66,6 +66,8 @@ export function attachManagement(exercises, onChange, toast) {
   const signature = c => JSON.stringify({m: [...c.mots_cles].sort(), v: c.mots_cles_verifies, t: c.theme, s: !!c.supprime});
   let saved = {};
   try {saved = JSON.parse(localStorage.getItem(SAVED_STORAGE)) || {};} catch {}
+  const isSaved = id => !!corrections[id] && saved[id] === signature(corrections[id]);
+  const gone = e => !!corrections[e.id]?.supprime && isSaved(e.id);   // suppression déjà enregistrée : l'exercice n'existe plus pour l'utilisateur
   const pendingIds = () => {for (const id of Object.keys(saved)) if (!corrections[id]) delete saved[id]; return Object.keys(corrections).filter(id => saved[id] !== signature(corrections[id])).sort();};
   function rememberSaved(ids) {
     for (const id of ids) saved[id] = signature(corrections[id]);
@@ -123,7 +125,7 @@ export function attachManagement(exercises, onChange, toast) {
       if (!data.ok && /Mot-clé inconnu/.test(data.erreur || '')) throw new Error('Le script Google n’est pas à jour : il refuse les nouveaux mots-clés. Republiez-le avec la dernière version (voir apps-script/LISEZ-MOI.md) ; vos corrections restent gardées dans ce navigateur.');
       if (!data.ok) throw new Error(data.erreur || 'Échec de l’enregistrement.');
       rememberPassword(password);
-      if (!dryRun && (data.schema || 1) >= 4) rememberSaved(ids);
+      if (!dryRun && (data.schema || 1) >= 4) {rememberSaved(ids); renderList(); renderEditor(); onChange();}
       const missing = [];
       if (themeChanges && (data.schema || 1) < 2) missing.push('les changements de thème');
       if (newKeywords.length && (data.schema || 1) < 3) missing.push('les nouveaux mots-clés');
@@ -236,28 +238,30 @@ export function attachManagement(exercises, onChange, toast) {
   function renderList() {
     const query = normalize($('manage-query').value).trim().split(/\s+/).filter(Boolean);
     const mode = $('manage-state').value;
-    list = exercises.filter(e => (!$('manage-level').value || e.niveau === $('manage-level').value)
+    const pending = new Set(pendingIds());
+    list = exercises.filter(e => !gone(e) && (!$('manage-level').value || e.niveau === $('manage-level').value)
       && (!$('manage-theme').value || e.theme === $('manage-theme').value)
       && (mode !== 'verified' || e.mots_cles_verifies) && (mode !== 'unchecked' || !e.mots_cles_verifies)
-      && (mode !== 'changed' || corrections[e.id])
+      && (mode !== 'changed' || pending.has(e.id))
       && query.every(word => normalize([e.id, e.theme, ...e.mots_cles, e.text].join(' ')).includes(word)))
       .sort((a, b) => a.id.localeCompare(b.id));
+    if (currentId && gone(byId.get(currentId))) currentId = list[0]?.id || null;
     page = Math.max(0, Math.min(page, Math.ceil(list.length / SIZE) - 1));
     $('manage-list-count').textContent = `${list.length} exercice${list.length > 1 ? 's' : ''}`;
     $('manage-list').replaceChildren(...list.slice(page * SIZE, (page + 1) * SIZE).map(e => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'manage-list-item' + (currentId === e.id ? ' active' : '');
       button.setAttribute('aria-pressed', String(currentId === e.id));
       const title = document.createElement('strong'); title.textContent = e.id + ' · ' + e.theme.replaceAll('_', ' ');
-      const info = document.createElement('span'); info.textContent = `${levels[e.niveau]} · ${e.mots_cles.length} mots-clés · ${e.mots_cles_verifies ? '✓ Vérifié' : 'À vérifier'}${corrections[e.id]?.supprime ? ' · 🗑 sera supprimé' : corrections[e.id] ? ' · modifié ici' : ''}`;
+      const info = document.createElement('span'); info.textContent = `${levels[e.niveau]} · ${e.mots_cles.length} mots-clés · ${e.mots_cles_verifies ? '✓ Vérifié' : 'À vérifier'}${corrections[e.id]?.supprime ? ' · 🗑 sera supprimé' : corrections[e.id] ? (isSaved(e.id) ? ' · enregistré' : ' · modifié ici') : ''}`;
       if (corrections[e.id]?.supprime) button.classList.add('is-deleted');
       button.append(title, info); button.onclick = () => {currentId = e.id; $('manage-keyword-search').value = ''; renderList(); renderEditor();}; return button;
     }));
     if (!list.length) $('manage-list').textContent = 'Aucun exercice pour ces filtres.';
     $('manage-list-page').textContent = `${page + 1} / ${Math.max(1, Math.ceil(list.length / SIZE))}`;
     $('manage-list-prev').disabled = !page; $('manage-list-next').disabled = (page + 1) * SIZE >= list.length;
-    const verified = exercises.filter(e => e.mots_cles_verifies).length;
-    const changed = Object.keys(corrections).length;
-    $('manage-progress').textContent = `${verified} / ${exercises.length} vérifiés · ${changed} exercice${changed > 1 ? 's' : ''} avec une correction locale`;
+    const alive = exercises.filter(e => !gone(e)), verified = alive.filter(e => e.mots_cles_verifies).length;
+    const changed = pendingIds().length;
+    $('manage-progress').textContent = `${verified} / ${alive.length} vérifiés · ${changed} exercice${changed > 1 ? 's' : ''} avec une correction locale`;
     renderSummary(); refreshSave();
   }
   function createKeyword() {
